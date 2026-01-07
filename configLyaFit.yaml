@@ -1,0 +1,132 @@
+# Lyman-Alpha Fitting Configuration File
+# =====================================
+
+# Input files, prioritize full path if not in working directory
+File: "spec_lya_G1_SDSS1429.csv"
+OutputFolder: "Results_Joaco_run_1"
+GridsFolder: "Grids"
+
+# Parameter bounds format: [min, init_low, init_high, max]
+# - min: absolute minimum allowed value
+# - init_low: lower bound for initial walker positions
+# - init_high: upper bound for initial walker positions  
+# - max: absolute maximum allowed value
+
+RedshiftBounds: [2, 2.1, 2.2, 3]
+ExpVBounds: [0, 100, 700, 800]        # km/s
+LogNBounds: [17.1, 18, 20, 21.5]      # cm**-2
+TauBounds: [0.0001, 0.1, 0.9, 1]
+FluxBounds: [0, 0.5, 1.5, 10]
+LogEWBounds: [0.0, 0.01, 2.8, 2.9]
+IntrinsicWBounds: [0.01, 0.05, 5.5, 5.9]
+TPBounds: [0.0001, 0.002, 0.8, 1.0]
+
+# =====================================================
+# Model Selection
+# =====================================================
+# Choose the model geometry to fit the Lyα line:
+#
+#
+#   - 'Thin_Shell' :
+#        Spherically symmetric expanding thin shell model. Neutral
+#        hydrogen is distributed in a thin shell with uniform column
+#        density, temperature, and bulk velocity. Lyα photons undergo
+#        resonant scattering in the shell, producing characteristic
+#        asymmetric line profiles. This is the standard, computationally
+#        efficient thin-shell implementation.
+#
+#   - 'Thin_Shell_Cont' :
+#        Same as Thin_Shell, but increased RAM usage.
+#
+#   - 'Galactic_Wind' :
+#        Spherically symmetric galactic wind model with a continuous
+#        radial velocity field. Neutral hydrogen is distributed in an
+#        extended outflow with velocity and density varying with radius,
+#        representing large-scale winds driven by star formation or
+#        feedback. Lyα photons experience frequency shifts accumulated
+#        over multiple scatterings throughout the flow.
+#
+#   - 'Bicone_X_Slab_In' :
+#        Anisotropic geometry where a dense, quasi-static HI medium
+#        is embedded within a biconical flow. Lyα photons experience
+#        high optical depth near the source and preferential escape
+#        along the bicone at larger radii.
+#
+#   - 'Bicone_X_Slab_Out' :
+#        Anisotropic geometry where a biconical flow is embedded within
+#        a surrounding high-column-density HI medium. The slab represents
+#        the optically thick CGM, while the bicone provides low-opacity
+#        escape channels.
+#
+Geometry: "Thin_Shell_Cont"
+Mode: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
+Inflow: false  # Set to true for inflowing gas
+
+# =====================================================
+# Instrumental Settings
+# =====================================================
+
+# Instruments: MUSE, KCWI, XSHOOTER, MAGE, LLAMAS, None
+Instrument: "MUSE"
+
+# If Instrument is set to "None", custom settings must be provided:
+LSF_FWHM: 2.0 # @ Peak wavelength of Lyα line
+PixelScale: 1.2 # Wavelength spacing per pixel
+
+
+# =====================================================
+# Fixed Parameters (optional)
+# =====================================================
+# Use this section to fix specific parameters to constant values.
+# When a parameter is fixed:
+#   - It will NOT be fitted (excluded from MCMC sampling)
+#   - It will use the specified 'value' throughout the fit
+#   - The 'value' must be within the parameter's [min, max] bounds
+#
+# Available parameters to fix:
+#   - Redshift   : Source redshift
+#   - ExpV       : Expansion velocity (km/s)
+#   - LogN       : Log column density (cm^-2)
+#   - Tau        : Optical depth
+#   - Flux       : Total line flux
+#   - LogEW      : Log equivalent width
+#   - IntrinsicW : Intrinsic line width
+#   - TP         : IGM transmission parameter
+#
+# Example: To fix the redshift to 5.25 and the optical depth to 0.5,
+# uncomment and modify the following:
+
+FixedParameters:
+  Redshift:
+    fixed: false
+    value: 5.25
+  ExpV:
+    fixed: false
+    value: 400
+  LogN:
+    fixed: false
+    value: 19.0
+  Tau:
+    fixed: false
+    value: 0.5
+  Flux:
+    fixed: false
+    value: 500
+  LogEW:
+    fixed: false
+    value: 1.5
+  IntrinsicW:
+    fixed: false
+    value: 2.0
+  TP:
+    fixed: false
+    value: 1
+
+# =====================================================
+# MCMC Settings
+# =====================================================
+MCMCA: 1.5              # Stretch move parameter (adjust if acceptance fraction is outside [0.2, 0.5])
+Nthreads: 8            # Number of parallel threads
+nwalkers: 20           # Number of walkers (should be >= 2 * number of free parameters)
+nsteps: 10            # Number of steps per walker
+MOVES: Stretch          # Move strategy: 'Stretch' or 'KDE'
