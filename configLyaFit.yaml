@@ -73,6 +73,14 @@ Instrument: "MUSE"
 LSF_FWHM: 2.0 # @ Peak wavelength of Lyα line
 PixelScale: 1.2 # Wavelength spacing per pixel
 
+SNR: 1000.  # Signal-to-noise ratio for model spectrum (preferably do not change)
+
+# =====================================================
+# Units Settings
+# =====================================================
+
+WavelengthUnits: "Angstrom"   # Options: "Angstrom" (DO NOT CHANGE and make sure your data is in Angstroms)
+FluxUnits: "a.u." # "1e-20 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}" for MUSE data
 
 # =====================================================
 # Fixed Parameters (optional)
@@ -82,44 +90,31 @@ PixelScale: 1.2 # Wavelength spacing per pixel
 #   - It will NOT be fitted (excluded from MCMC sampling)
 #   - It will use the specified 'value' throughout the fit
 #   - The 'value' must be within the parameter's [min, max] bounds
-#
-# Available parameters to fix:
-#   - Redshift   : Source redshift
-#   - ExpV       : Expansion velocity (km/s)
-#   - LogN       : Log column density (cm^-2)
-#   - Tau        : Optical depth
-#   - Flux       : Total line flux
-#   - LogEW      : Log equivalent width
-#   - IntrinsicW : Intrinsic line width
-#   - TP         : IGM transmission parameter
-#
-# Example: To fix the redshift to 5.25 and the optical depth to 0.5,
-# uncomment and modify the following:
 
 FixedParameters:
   Redshift:
-    fixed: false
-    value: 5.25
+    fixed: True
+    value: 2.182
   ExpV:
-    fixed: false
+    fixed: False
     value: 400
   LogN:
-    fixed: false
+    fixed: False
     value: 19.0
   Tau:
-    fixed: false
+    fixed: False
     value: 0.5
   Flux:
-    fixed: false
+    fixed: False
     value: 500
   LogEW:
-    fixed: false
+    fixed: False
     value: 1.5
   IntrinsicW:
-    fixed: false
+    fixed: False
     value: 2.0
   TP:
-    fixed: false
+    fixed: False
     value: 1
 
 # =====================================================
@@ -128,5 +123,5 @@ FixedParameters:
 MCMCA: 1.5              # Stretch move parameter (adjust if acceptance fraction is outside [0.2, 0.5])
 Nthreads: 8            # Number of parallel threads
 nwalkers: 20           # Number of walkers (should be >= 2 * number of free parameters)
-nsteps: 10            # Number of steps per walker
+nsteps: 15            # Number of steps per walker
 MOVES: Stretch          # Move strategy: 'Stretch' or 'KDE'
