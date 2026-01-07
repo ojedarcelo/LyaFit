@@ -6,6 +6,7 @@ from lyafit.mcmc_routine import MCMCRoutine
 from lyafit.lya_model import LyaModel
 from lyafit.plotter import Plotter
 from lyafit.aux_funcs import prune, build_full_theta
+from lyafit.csv_handler import CSVHandler
 
 ConfigFile = yaml.safe_load(open('configLyaFit.yaml'))
 ll_dict = {
@@ -186,3 +187,17 @@ if __name__ == '__main__':
         T_IGM_Arr,
         T_p
     )
+
+    print('*** Saving results to CSV... ***')
+
+    csv_handler = CSVHandler(
+        all_params=list(ConfigFile['FixedParameters'].keys()),
+        fitted_params=free_parameters,
+        output_folder=ConfigFile['OutputFolder'],
+        emcee_trace=emcee_trace,
+        lnprob=lnprob,
+        ConfigFile=ConfigFile,
+        ll_dict=ll_dict
+    )
+
+    csv_handler.save_parameters_to_csv()
