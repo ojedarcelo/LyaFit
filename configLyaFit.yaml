@@ -60,7 +60,7 @@ TPBounds: [0.0001, 0.002, 0.8, 1.0]
 #
 Geometry: "Thin_Shell_Cont"
 Mode: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
-Inflow: false  # Set to true for inflowing gas
+Inflow: False  # Set to true for inflowing gas
 
 # =====================================================
 # Instrumental Settings
@@ -123,5 +123,5 @@ FixedParameters:
 MCMCA: 1.5              # Stretch move parameter (adjust if acceptance fraction is outside [0.2, 0.5])
 Nthreads: 8            # Number of parallel threads
 nwalkers: 20           # Number of walkers (should be >= 2 * number of free parameters)
-nsteps: 15            # Number of steps per walker
+nsteps: 20            # Number of steps per walker
 MOVES: Stretch          # Move strategy: 'Stretch' or 'KDE'

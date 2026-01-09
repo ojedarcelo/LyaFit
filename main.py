@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import yaml
@@ -29,6 +30,10 @@ line_df.columns = line_df.columns.str.strip()
 measured_wavelength = line_df['w_Arr']
 measured_flux = line_df['measured_flux']
 sigma = line_df['sigma']
+
+if ConfigFile['Inflow']:
+    measured_flux = measured_flux[::-1]
+    sigma = sigma[::-1]
 
 nburn = int(0.5 * ConfigFile['nsteps'])
 free_parameters = list()
@@ -74,11 +79,16 @@ if __name__ == '__main__':
         starting_guesses=starting_guesses
     )
 
+    FWHM_t = ConfigFile['LSF_FWHM']
+    PIX_t = ConfigFile['PixelScale']
+
     lyamodel = LyaModel(
         geometry=ConfigFile['Geometry'],
         mode=ConfigFile['Mode'],
         free_params=free_parameters,
-        ConfigFile=ConfigFile
+        ConfigFile=ConfigFile,
+        fwhm_t=FWHM_t,
+        pix_t=PIX_t
     )
 
     sampler = mcmc.fit_zelda_mcmc(
@@ -100,6 +110,8 @@ if __name__ == '__main__':
 
     print(50 * '#')
     print('*** Plotting Traces... ***')
+
+    os.makedirs(ConfigFile['OutputFolder'], exist_ok=True)
 
     plotter = Plotter(
         sampler=sampler,
@@ -201,3 +213,9 @@ if __name__ == '__main__':
     )
 
     csv_handler.save_parameters_to_csv()
+
+    print('')
+    print(50 * '#')
+    print('*** Done! Thank you for your patience. ***')
+    print(50 * '#')
+    print('')

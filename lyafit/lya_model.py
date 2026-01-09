@@ -1,6 +1,6 @@
 import numpy as np
 import Lya_zelda_II as Lya
-from aux_funcs import generate_igm_transmission, build_full_theta
+from lyafit.aux_funcs import generate_igm_transmission, build_full_theta
 
 
 class LyaModel:
@@ -26,6 +26,9 @@ class LyaModel:
             "IntrinsicW",
             "TP",
         ]
+
+        GRIDS_LOCATION = self.ConfigFile['GridsFolder']
+        Lya.funcs.Data_location = GRIDS_LOCATION
 
     def lnprior(self, theta):
         for i, pname in enumerate(self.free_params):
