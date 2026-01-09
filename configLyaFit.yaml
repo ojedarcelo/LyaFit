@@ -1,10 +1,10 @@
 # Lyman-Alpha Fitting Configuration File
 # =====================================
 
-# Input files, prioritize full path if not in working directory
-File: "spec_lya_G1_SDSS1429.csv"
-OutputFolder: "Results_Joaco_run_1"
-GridsFolder: "Grids"
+# Input files
+File: "spec_lya_G1_SDSS1429.csv" # prioritize full path if not in working directory
+OutputFolder: "Results_Joaco_freez_inflow_run_1"
+GridsFolder: "Grids" # MUST be in working directory
 
 # Parameter bounds format: [min, init_low, init_high, max]
 # - min: absolute minimum allowed value
@@ -13,7 +13,7 @@ GridsFolder: "Grids"
 # - max: absolute maximum allowed value
 
 RedshiftBounds: [2, 2.1, 2.2, 3]
-ExpVBounds: [0, 100, 700, 800]        # km/s
+ExpVBounds: [0, 100, 700, 1000]        # km/s
 LogNBounds: [17.1, 18, 20, 21.5]      # cm**-2
 TauBounds: [0.0001, 0.1, 0.9, 1]
 FluxBounds: [0, 0.5, 1.5, 10]
@@ -60,7 +60,7 @@ TPBounds: [0.0001, 0.002, 0.8, 1.0]
 #
 Geometry: "Thin_Shell_Cont"
 Mode: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
-Inflow: False  # Set to true for inflowing gas
+Inflow: True  # Set to true for inflowing gas
 
 # =====================================================
 # Instrumental Settings
@@ -70,8 +70,8 @@ Inflow: False  # Set to true for inflowing gas
 Instrument: "MUSE"
 
 # If Instrument is set to "None", custom settings must be provided:
-LSF_FWHM: 2.0 # @ Peak wavelength of Lyα line
-PixelScale: 1.2 # Wavelength spacing per pixel
+LSF_FWHM: 2.2 # @ Peak wavelength of Lyα line
+PixelScale: 1.0 # Wavelength spacing per pixel
 
 SNR: 1000.  # Signal-to-noise ratio for model spectrum (preferably do not change)
 
@@ -93,7 +93,7 @@ FluxUnits: "a.u." # "1e-20 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}" for MUSE data
 
 FixedParameters:
   Redshift:
-    fixed: True
+    fixed: False
     value: 2.182
   ExpV:
     fixed: False

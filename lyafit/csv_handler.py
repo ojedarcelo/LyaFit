@@ -31,7 +31,7 @@ class CSVHandler:
                 new_row[param + '_fixed'] = fp["value"]
 
         df = pd.DataFrame([new_row])
-        csv_path = os.path.join(self.output_folder, 'results.csv')
+        csv_path = os.path.join('Results', self.output_folder, 'results.csv')
 
         df.to_csv(csv_path, index=False)
         return

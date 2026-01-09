@@ -111,7 +111,8 @@ if __name__ == '__main__':
     print(50 * '#')
     print('*** Plotting Traces... ***')
 
-    os.makedirs(ConfigFile['OutputFolder'], exist_ok=True)
+    os.makedirs('Results', exist_ok=True)
+    os.makedirs(os.path.join('Results', ConfigFile['OutputFolder']), exist_ok=True)
 
     plotter = Plotter(
         sampler=sampler,
@@ -175,9 +176,25 @@ if __name__ == '__main__':
         theta_aux
     )
 
-    z_t, V_t, log_N_t, t_t, F_t, log_EW_t, W_t, T_p = full_theta
-    w_One_Arr_MCMC, f_One_Arr_MCMC, resample, info, w_IGM_rest_Arr, T_IGM_Arr = LyaModel.generate_and_resample(
-        measured_wavelength, z_t, V_t, log_N_t, t_t, F_t, log_EW_t, W_t, T_p
+    z_t = full_theta['Redshift'] 
+    V_t = full_theta['ExpV']
+    log_N_t = full_theta['LogN']
+    t_t = full_theta['Tau']
+    F_t = full_theta['Flux']
+    log_EW_t = full_theta['LogEW']
+    W_t = full_theta['IntrinsicW']
+    T_p = full_theta['TP']
+
+    w_One_Arr_MCMC, f_One_Arr_MCMC, resample, info, w_IGM_rest_Arr, T_IGM_Arr = lyamodel.generate_and_resample(
+        w_Arr=measured_wavelength,
+        z_t=z_t,
+        V_t=V_t,
+        log_N_t=log_N_t,
+        t_t=t_t,
+        F_t=F_t,
+        log_EW_t=log_EW_t,
+        W_t=W_t,
+        T_p=T_p
     )
 
     plotter.plot_best_fit(

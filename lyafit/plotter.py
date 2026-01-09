@@ -102,7 +102,8 @@ class Plotter:
                     trace_path),
                 dpi=300)
             plt.close()
-            return
+        
+        return
 
     def plot_covariance(self, samples):
 
@@ -217,10 +218,6 @@ class Plotter:
             c='purple',
             label='IGM Transmission Best Fit,\nT_p = {:.3f}'.format(T_p)
         )
-
-        title_str = 'Free z + IGM'
-
-        ax.set_title(title_str)
 
         ax.set_xlabel(r'$\lambda$ (Angstrom)')
         ax.set_ylabel(

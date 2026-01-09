@@ -69,7 +69,7 @@ def build_full_theta(param_names, ConfigFile, theta_free):
     for name in param_names:
         fp = ConfigFile["FixedParameters"][name]
         if fp["fixed"]:
-            full_theta[name] = fp["value"]
+            full_theta[name] = float(fp["value"])
         else:
             full_theta[name] = theta_free[free_idx]
             free_idx += 1
