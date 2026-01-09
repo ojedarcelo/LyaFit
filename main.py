@@ -176,7 +176,7 @@ if __name__ == '__main__':
         theta_aux
     )
 
-    z_t = full_theta['Redshift'] 
+    z_t = full_theta['Redshift']
     V_t = full_theta['ExpV']
     log_N_t = full_theta['LogN']
     t_t = full_theta['Tau']

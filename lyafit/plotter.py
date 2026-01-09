@@ -102,7 +102,7 @@ class Plotter:
                     trace_path),
                 dpi=300)
             plt.close()
-        
+
         return
 
     def plot_covariance(self, samples):
