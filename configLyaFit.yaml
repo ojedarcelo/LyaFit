@@ -2,7 +2,7 @@
 # =====================================
 
 # Input files
-File: "spec_lya_G1_SDSS1429.csv" # prioritize full path if not in working directory
+File: "CSV_FILES/spec_lya_G1_SDSS1429.csv" # prioritize full path if not in working directory
 OutputFolder: "Results_Joaco_freez_inflow_run_1"
 GridsFolder: "Grids" # MUST be in working directory
 

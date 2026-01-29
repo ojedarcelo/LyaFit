@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import yaml
+import sys
+import argparse
 
 from lyafit.mcmc_routine import MCMCRoutine
 from lyafit.lya_model import LyaModel
@@ -9,7 +11,28 @@ from lyafit.plotter import Plotter
 from lyafit.aux_funcs import prune, build_full_theta
 from lyafit.csv_handler import CSVHandler
 
-ConfigFile = yaml.safe_load(open('configLyaFit.yaml'))
+
+parser = argparse.ArgumentParser(
+    description='LyaFit: MCMC Fitting of Lyman-alpha Line Profiles'
+)
+
+parser.add_argument(
+    '--ConfigFile',
+    required=True,
+    help='Path to the configuration YAML file'
+)
+
+args = parser.parse_args()
+
+config_file_path = args.ConfigFile
+
+if not os.path.isfile(config_file_path):
+    print(f"Configuration file '{config_file_path}' not found.")
+    sys.exit(1)
+
+with open(config_file_path, 'r') as file:
+    ConfigFile = yaml.safe_load(file)
+
 ll_dict = {
     'Redshift': 'z',
     'ExpV': 'V_t',
