@@ -244,7 +244,7 @@ class Plotter:
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
-        best_fit_path = 'BestFitOverLine_joaco_free_z_IGM.png'
+        best_fit_path = 'BestFitOverLine_IGM.png'
         fig.savefig(
             os.path.join(self.results_folder_path, best_fit_path),
             dpi=450,
