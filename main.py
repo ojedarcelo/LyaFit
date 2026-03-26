@@ -246,8 +246,8 @@ if __name__ == '__main__':
         all_params=list(ConfigFile['FixedParameters'].keys()),
         fitted_params=free_parameters,
         output_folder=ConfigFile['OutputFolder'],
-        emcee_trace=emcee_trace,
-        lnprob=lnprob,
+        emcee_trace=samples,
+        lnprob=lnprob2,
         ConfigFile=ConfigFile,
         ll_dict=ll_dict
     )
