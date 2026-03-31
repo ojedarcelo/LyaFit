@@ -4,3 +4,7 @@ spec_lya_G1_SDSS1429.csv
 test.ipynb
 Results
 /.vscode
+emission_spectrum_candels-cdfs-06_106014046.csv
+emission_spectrum_candels-cdfs-06_106014046.yaml
+flux_lya_slice_0.csv
+report.log

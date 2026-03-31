@@ -167,10 +167,25 @@ if __name__ == '__main__':
 
     print(50 * '#')
     print('*** Pruning... ***')
+    
+    # --- NEW CODE ---
+    # 1. Filter out -inf values (walkers that stepped outside the grid)
+    valid_idx = np.isfinite(lnprob_aux)
+    
+    if np.sum(valid_idx) == 0:
+        print("ERROR: All walkers returned -inf likelihood. Your parameter bounds are entirely outside the zELDA grid.")
+        exit(1)
+        
+    samples_valid = samples[valid_idx]
+    lnprob_valid = lnprob_aux[valid_idx]
+
+    # 2. Try pruning, but create a safe fallback if it fails
     try:
-        samples, lnprob2 = prune(samples, lnprob_aux)
-    except Exception:
-        print('Prunning failed....')
+        samples, lnprob2 = prune(samples_valid, lnprob_valid)
+    except Exception as e:
+        print(f'Pruning failed ({e}).... Falling back to unpruned (but valid) samples.')
+        samples = samples_valid
+        lnprob2 = lnprob_valid
 
     print(50 * '#')
     print('*** Plotting Covariance... ***')

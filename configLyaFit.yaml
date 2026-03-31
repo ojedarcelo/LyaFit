@@ -2,8 +2,8 @@
 # =====================================
 
 # Input files
-File: "CSV_FILES/spec_lya_G1_SDSS1429.csv" # prioritize full path if not in working directory
-OutputFolder: "Results_Joaco_freez_inflow_run_1"
+File: "/path/to/input/file.csv" # prioritize full path if not in working directory
+OutputFolder: "/path/to/output/folder"
 GridsFolder: "Grids" # MUST be in working directory
 
 # Parameter bounds format: [min, init_low, init_high, max]
@@ -13,12 +13,12 @@ GridsFolder: "Grids" # MUST be in working directory
 # - max: absolute maximum allowed value
 
 RedshiftBounds: [2, 2.1, 2.2, 3]
-ExpVBounds: [0, 100, 700, 1000]        # km/s
-LogNBounds: [17.1, 18, 20, 21.5]      # cm**-2
+ExpVBounds: [0, 100, 700, 1000]            # km s**
+LogNBounds: [17.1, 18, 20, 22]             # cm**-2, Upper bound can be increased to 22 for geometries other than Thin_Shell
 TauBounds: [0.0001, 0.1, 0.9, 1]
 FluxBounds: [0, 0.5, 1.5, 10]
-LogEWBounds: [0.0, 0.01, 2.8, 2.9]
-IntrinsicWBounds: [0.01, 0.05, 5.5, 5.9]
+LogEWBounds: [0.0, 0.01, 2.8, 2.9]         # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
+IntrinsicWBounds: [0.01, 0.05, 5.5, 5.9]   # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
 TPBounds: [0.0001, 0.002, 0.8, 1.0]
 
 # =====================================================
@@ -60,7 +60,7 @@ TPBounds: [0.0001, 0.002, 0.8, 1.0]
 #
 Geometry: "Thin_Shell_Cont"
 Mode: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
-Inflow: True  # Set to true for inflowing gas
+Inflow: False  # Set to True for inflowing gas
 
 # =====================================================
 # Instrumental Settings
@@ -120,8 +120,11 @@ FixedParameters:
 # =====================================================
 # MCMC Settings
 # =====================================================
-MCMCA: 1.5              # Stretch move parameter (adjust if acceptance fraction is outside [0.2, 0.5])
-Nthreads: 8            # Number of parallel threads
-nwalkers: 20           # Number of walkers (should be >= 2 * number of free parameters)
+MCMCA: 1.5            # Stretch move parameter (adjust if acceptance fraction (af) is outside [0.2, 0.5])
+                      # If af < 0.2 decrease the a parameter
+                      # If af > 0.5 increase the a parameter
+
+Nthreads: 8           # Number of parallel threads
+nwalkers: 20          # Number of walkers (should be >= 2 * number of free parameters)
 nsteps: 20            # Number of steps per walker
-MOVES: Stretch          # Move strategy: 'Stretch' or 'KDE'
+MOVES: Stretch        # Move strategy: 'Stretch' or 'KDE'
