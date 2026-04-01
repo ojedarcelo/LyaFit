@@ -18,12 +18,18 @@ class CSVHandler:
         new_row = dict()
 
         for i in range(len(self.fitted_params)):
-            new_row[self.ll_dict[self.fitted_params[i]] + '_bestfit'] = self.emcee_trace[np.argmax(self.lnprob)][i]
-            new_row[self.ll_dict[self.fitted_params[i]] + '_16'] = np.percentile(self.emcee_trace.T[i], 16)
-            new_row[self.ll_dict[self.fitted_params[i]] + '_50'] = np.percentile(self.emcee_trace.T[i], 50)
-            new_row[self.ll_dict[self.fitted_params[i]] + '_84'] = np.percentile(self.emcee_trace.T[i], 84)
-            new_row[self.ll_dict[self.fitted_params[i]] + '_mean'] = np.mean(self.emcee_trace.T[i])
-            new_row[self.ll_dict[self.fitted_params[i]] + '_err'] = np.std(self.emcee_trace.T[i])
+            param_name = self.fitted_params[i]
+            ll_name = self.ll_dict[param_name]
+            
+            # Exclude bestfit if the parameter is f_esc
+            if param_name != 'f_esc':
+                new_row[ll_name + '_bestfit'] = self.emcee_trace[np.argmax(self.lnprob)][i]
+                
+            new_row[ll_name + '_16'] = np.percentile(self.emcee_trace.T[i], 16)
+            new_row[ll_name + '_50'] = np.percentile(self.emcee_trace.T[i], 50)
+            new_row[ll_name + '_84'] = np.percentile(self.emcee_trace.T[i], 84)
+            new_row[ll_name + '_mean'] = np.mean(self.emcee_trace.T[i])
+            new_row[ll_name + '_err'] = np.std(self.emcee_trace.T[i])
 
         for param in self.all_params:
             if param not in self.fitted_params:

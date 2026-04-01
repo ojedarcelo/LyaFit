@@ -1,4 +1,5 @@
 import numpy as np
+import Lya_zelda_II as Lya
 
 
 def generate_igm_transmission(w_Arr, T_p, z):  # T_p is the transmission parameter
@@ -75,3 +76,42 @@ def build_full_theta(param_names, ConfigFile, theta_free):
             free_idx += 1
 
     return full_theta
+
+
+def append_escape_fraction(chain, free_parameters, ConfigFile, ll_dict):
+    """
+    Calculates the escape fraction (f_esc) for the entire MCMC chain
+    and appends it as a new parameter.
+    """
+    flat_chain = chain.reshape((-1, len(free_parameters)))
+    
+    def get_param_array(p_name):
+        if ConfigFile['FixedParameters'][p_name]['fixed']:
+            return np.full(flat_chain.shape[0], float(ConfigFile['FixedParameters'][p_name]['value']))
+        else:
+            return flat_chain[:, free_parameters.index(p_name)]
+    
+    V_arr = get_param_array('ExpV')
+    LogN_arr = get_param_array('LogN')
+    Tau_arr = get_param_array('Tau')
+    
+    Lya.funcs.Data_location = ConfigFile['GridsFolder']
+    
+    # Calculate f_esc for all samples vectorially
+    if ConfigFile['Geometry'] == 'Thin_Shell_Cont':
+        f_esc_flat = Lya.RT_f_esc('Thin_Shell', V_arr, LogN_arr, Tau_arr)
+    else:
+        f_esc_flat = Lya.RT_f_esc(ConfigFile['Geometry'], V_arr, LogN_arr, Tau_arr)
+
+    nwalkers = chain.shape[0]
+    nsteps = chain.shape[1]
+    
+    # Reshape and append to the MCMC chain
+    f_esc_chain = f_esc_flat.reshape((nwalkers, nsteps, 1))
+    new_chain = np.concatenate([chain, f_esc_chain], axis=2)
+    
+    # Update parameter lists and dictionaries
+    free_parameters.append('f_esc')
+    ll_dict['f_esc'] = 'f_esc'
+    
+    return new_chain, free_parameters, ll_dict

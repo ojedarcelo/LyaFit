@@ -10,3 +10,5 @@ flux_lya_slice_0.csv
 report.log
 test_slice_0.yaml
 lyafit/__pycache__
+emission_spectrum_candels-cdfs-03_103032106.csv
+emission_spectrum_candels-cdfs-03_103032106.yaml

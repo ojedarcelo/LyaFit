@@ -8,7 +8,7 @@ import argparse
 from lyafit.mcmc_routine import MCMCRoutine
 from lyafit.lya_model import LyaModel
 from lyafit.plotter import Plotter
-from lyafit.aux_funcs import prune, build_full_theta
+from lyafit.aux_funcs import prune, build_full_theta, append_escape_fraction
 from lyafit.csv_handler import CSVHandler
 
 
@@ -123,11 +123,30 @@ if __name__ == '__main__':
 
     emcee_trace = sampler.chain[:, :, :].reshape((-1, len(free_parameters)))
     lnprob = sampler.lnprobability
+
+    chain = sampler.chain.copy()
+    
+    if ConfigFile.get('CalculateEscapeFraction', False):
+        print(50 * '#')
+        print('*** Calculating Escape Fraction ***')
+        
+        # Call the new function from aux_funcs
+        chain, free_parameters, ll_dict = append_escape_fraction(
+            chain=chain, 
+            free_parameters=free_parameters, 
+            ConfigFile=ConfigFile, 
+            ll_dict=ll_dict
+        )
+        
+        # Update emcee_trace to include the new parameter
+        emcee_trace = chain.reshape((-1, len(free_parameters)))
+
     print(50 * '#')
     print('*** Best fit ***')
 
     for i in range(len(free_parameters)):
-        print(free_parameters[i], ':', emcee_trace[np.argmax(lnprob)][i])
+        if free_parameters[i] != 'f_esc': # Skip best fit print for f_esc
+            print(free_parameters[i], ':', emcee_trace[np.argmax(lnprob)][i])
 
     theta = emcee_trace[np.argmax(lnprob)]
 
@@ -138,7 +157,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join('Results', ConfigFile['OutputFolder']), exist_ok=True)
 
     plotter = Plotter(
-        sampler=sampler,
+        chain=chain, 
         lnprob=lnprob,
         output_folder=ConfigFile['OutputFolder'],
         free_parameters=free_parameters,
@@ -161,7 +180,7 @@ if __name__ == '__main__':
     if np.mean(af) < 0.2 or np.mean(af) > 0.5:
         print(af_msg)
 
-    samples = sampler.chain[:, nburn:, :].reshape(
+    samples = chain[:, nburn:, :].reshape(
         (-1, len(free_parameters)))
     lnprob_aux = sampler.lnprobability[:, nburn:].reshape(-1)
 
@@ -189,6 +208,14 @@ if __name__ == '__main__':
 
     print(50 * '#')
     print('*** Plotting Covariance... ***')
+
+    valid_mask = np.all(np.isfinite(samples), axis=1)
+    samples = samples[valid_mask]
+    lnprob2 = lnprob2[valid_mask]
+    
+    if len(samples) == 0:
+        print("ERROR: All samples contained NaNs/Infs. Check your parameter bounds.")
+        exit(1)
 
     plotter.plot_covariance(samples)
 

@@ -15,8 +15,8 @@ cc = sns.color_palette()
 
 
 class Plotter:
-    def __init__(self, sampler, lnprob, output_folder, free_parameters, ll_dict, flux_units):
-        self.sampler = sampler
+    def __init__(self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units):
+        self.chain = chain
         self.lnprob = lnprob
         self.results_folder_path = os.path.join('Results', output_folder)
         self.free_parameters = free_parameters
@@ -64,7 +64,7 @@ class Plotter:
             plt.figure()
             x = np.array([])
             y = np.array([])
-            for i in self.sampler.chain:
+            for i in self.chain:
                 x = np.append(x, range(len(i.T[ID])))
                 y = np.append(y, i.T[ID])
 

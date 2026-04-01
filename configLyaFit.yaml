@@ -21,6 +21,8 @@ LogEWBounds: [0.0, 0.01, 2.8, 2.9]         # Angstrom, Upper bound can be infini
 IntrinsicWBounds: [0.01, 0.05, 5.5, 5.9]   # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
 TPBounds: [0.0001, 0.002, 0.8, 1.0]
 
+CalculateEscapeFraction: False # Set to True to calculate escape fraction
+
 # =====================================================
 # Model Selection
 # =====================================================
