@@ -3,6 +3,7 @@ import corner
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy import stats
 from matplotlib import rcParams
 
 
@@ -15,13 +16,14 @@ cc = sns.color_palette()
 
 
 class Plotter:
-    def __init__(self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units):
+    def __init__(self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units, ConfigFile): # <--- Added ConfigFile
         self.chain = chain
         self.lnprob = lnprob
         self.results_folder_path = os.path.join('Results', output_folder)
         self.free_parameters = free_parameters
         self.ll_dict = ll_dict
         self.flux_units = flux_units
+        self.ConfigFile = ConfigFile # <--- Added attribute
 
         self.LYA_WAVELENGTH = 1215.67  # Lyman-alpha wavelength in Angstroms
 
@@ -107,11 +109,33 @@ class Plotter:
 
     def plot_covariance(self, samples):
 
-        ll = [self.ll_dict[p] for p in self.free_parameters]
+        ll_with_pvalues = []
+
+        for i, p_name in enumerate(self.free_parameters):
+            trace = samples.T[i]
+            ll_name = self.ll_dict[p_name]
+            
+            # Calculate KS Test
+            if p_name == 'f_esc':
+                loc, scale = 0.0, 1.0
+            else:
+                bounds = self.ConfigFile[p_name + 'Bounds']
+                loc, scale = bounds[0], bounds[3] - bounds[0]
+                
+            _, p_value = stats.kstest(trace, stats.uniform(loc=loc, scale=scale).cdf)
+            
+            # Format the p-value cleanly
+            if p_value < 0.001:
+                p_str = "p < 0.001"
+            else:
+                p_str = f"p={p_value:.3f}"
+                
+            # Append to the original label (e.g., "V_t \n (p=0.04)")
+            ll_with_pvalues.append(f"{ll_name}\n({p_str})")
 
         fig = corner.corner(
             samples,
-            labels=ll,
+            labels=ll_with_pvalues,
             title_kwargs={'y': 1.05},
             title_fmt=".2f",
             use_math_text=True,
@@ -127,6 +151,7 @@ class Plotter:
         fig.savefig(os.path.join(self.results_folder_path, covariance_path))
         plt.close()
         return
+
 
     def plot_best_fit(self, measured_wavelength, measured_flux, sigma, resample, z_t):
 

@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-
+from scipy import stats  # <--- NEW IMPORT
 
 class CSVHandler:
     def __init__(self, all_params, fitted_params, output_folder, emcee_trace, lnprob, ConfigFile, ll_dict):
@@ -20,16 +20,33 @@ class CSVHandler:
         for i in range(len(self.fitted_params)):
             param_name = self.fitted_params[i]
             ll_name = self.ll_dict[param_name]
+            trace = self.emcee_trace.T[i]
+            
+            # --- KS Test for Uniformity ---
+            if param_name == 'f_esc':
+                # Escape fraction is naturally bounded between 0 and 1
+                loc = 0.0
+                scale = 1.0
+            else:
+                # Fetch absolute min and max from ConfigFile: [min, init_low, init_high, max]
+                bounds = self.ConfigFile[param_name + 'Bounds']
+                loc = bounds[0]
+                scale = bounds[3] - bounds[0] # Scale is the width of the distribution
+            
+            # Calculate KS statistic and p-value
+            ks_stat, p_value = stats.kstest(trace, stats.uniform(loc=loc, scale=scale).cdf)
+            new_row[ll_name + '_pvalue'] = p_value
+            # ----------------------------------------
             
             # Exclude bestfit if the parameter is f_esc
             if param_name != 'f_esc':
                 new_row[ll_name + '_bestfit'] = self.emcee_trace[np.argmax(self.lnprob)][i]
                 
-            new_row[ll_name + '_16'] = np.percentile(self.emcee_trace.T[i], 16)
-            new_row[ll_name + '_50'] = np.percentile(self.emcee_trace.T[i], 50)
-            new_row[ll_name + '_84'] = np.percentile(self.emcee_trace.T[i], 84)
-            new_row[ll_name + '_mean'] = np.mean(self.emcee_trace.T[i])
-            new_row[ll_name + '_err'] = np.std(self.emcee_trace.T[i])
+            new_row[ll_name + '_16'] = np.percentile(trace, 16)
+            new_row[ll_name + '_50'] = np.percentile(trace, 50)
+            new_row[ll_name + '_84'] = np.percentile(trace, 84)
+            new_row[ll_name + '_mean'] = np.mean(trace)
+            new_row[ll_name + '_err'] = np.std(trace)
 
         for param in self.all_params:
             if param not in self.fitted_params:

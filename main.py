@@ -162,7 +162,8 @@ if __name__ == '__main__':
         output_folder=ConfigFile['OutputFolder'],
         free_parameters=free_parameters,
         ll_dict=ll_dict,
-        flux_units=ConfigFile['FluxUnits']
+        flux_units=ConfigFile['FluxUnits'],
+        ConfigFile=ConfigFile
     )
 
     plotter.plot_convergence()
