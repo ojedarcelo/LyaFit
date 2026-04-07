@@ -297,6 +297,13 @@ if __name__ == '__main__':
 
     csv_handler.save_parameters_to_csv()
 
+    print('*** Saving last 1000 iterations... ***')
+
+    last_1000_chain = chain[:, -1000:, :]
+
+    npy_path = os.path.join('Results', ConfigFile['OutputFolder'], 'last_1000_steps.npy')
+    np.save(npy_path, last_1000_chain)
+
     print('')
     print(50 * '#')
     print('*** Done! Thank you for your patience. ***')

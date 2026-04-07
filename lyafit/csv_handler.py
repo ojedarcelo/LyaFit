@@ -30,8 +30,8 @@ class CSVHandler:
             else:
                 # Fetch absolute min and max from ConfigFile: [min, init_low, init_high, max]
                 bounds = self.ConfigFile[param_name + 'Bounds']
-                loc = bounds[0]
-                scale = bounds[3] - bounds[0] # Scale is the width of the distribution
+                loc = min(trace)
+                scale = max(trace) # Scale is the width of the distribution
             
             # Calculate KS statistic and p-value
             ks_stat, p_value = stats.kstest(trace, stats.uniform(loc=loc, scale=scale).cdf)
