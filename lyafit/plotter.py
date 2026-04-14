@@ -184,22 +184,20 @@ class Plotter:
         ax.axhline(0, color='r', ls='--')
 
         redshifted_wavelength = self.LYA_WAVELENGTH * (1 + z_t)
+
+        is_z_fixed = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
+        
+        if is_z_fixed:
+            z_label = 'Systemic Lya Redshift\nz={}'.format(round(z_t, 3))
+        else:
+            z_label = 'Best Fit Lya Wavelength\nz={}'.format(round(z_t, 3))
+
         ax.axvline(
             redshifted_wavelength,
             color='orange',
             ls='--',
-            label='Best Fit Lya Wavelength\nz={}'.format(round(z_t, 3))
+            label=z_label
         )
-
-        # ax.text(
-        #     0.95,
-        #     0.95,
-        #     textstr,
-        #     transform=ax.transAxes,
-        #     fontsize=9,
-        #     verticalalignment='top',
-        #     horizontalalignment='right',
-        #     bbox=props)
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
@@ -250,22 +248,20 @@ class Plotter:
         ax.axhline(0, color='r', ls='--')
 
         redshifted_wavelength = self.LYA_WAVELENGTH * (1 + z_t)
+
+        is_z_fixed = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
+        
+        if is_z_fixed:
+            z_label = 'Systemic Lya Redshift\nz={}'.format(round(z_t, 3))
+        else:
+            z_label = 'Best Fit Lya Wavelength\nz={}'.format(round(z_t, 3))
+
         ax.axvline(
             redshifted_wavelength,
             color='orange',
             ls='--',
-            label='Best Fit Lya Wavelength\nz={}'.format(round(z_t, 3))
+            label=z_label
         )
-
-        # ax.text(
-        #     0.95,
-        #     0.85,
-        #     textstr,
-        #     transform=ax.transAxes,
-        #     fontsize=9,
-        #     verticalalignment='top',
-        #     horizontalalignment='right',
-        #     bbox=props)
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
