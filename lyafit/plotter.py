@@ -71,7 +71,7 @@ class Plotter:
                 y = np.append(y, i.T[ID])
 
             plt.figure()
-            if (max(y) / min(y)) > 50 and len(y[y < 0]) < 1:
+            if min(y) > 0 and (max(y) / min(y)) > 50:
                 plt.hexbin(
                     x,
                     y,
