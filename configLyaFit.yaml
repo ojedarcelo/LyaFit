@@ -60,7 +60,7 @@ CalculateEscapeFraction: False # Set to True to calculate escape fraction
 #        the optically thick CGM, while the bicone provides low-opacity
 #        escape channels.
 #
-Geometry: "Thin_Shell_Cont"
+Geometry: ["Thin_Shell_Cont"]   # Single string or list of strings
 Mode: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
 Inflow: False  # Set to True for inflowing gas
 
