@@ -6,7 +6,11 @@ File: "/path/to/input/file.csv" # prioritize full path if not in working directo
 OutputFolder: "/path/to/output/folder"
 GridsFolder: "Grids" # MUST be in working directory
 
-# Parameter bounds format: [min, init_low, init_high, max]
+
+# =====================================================
+# Parameter bounds
+# =====================================================
+# Format: [min, init_low, init_high, max]
 # - min: absolute minimum allowed value
 # - init_low: lower bound for initial walker positions
 # - init_high: upper bound for initial walker positions  
@@ -59,30 +63,10 @@ CalculateEscapeFraction: False # Set to True to calculate escape fraction
 #        a surrounding high-column-density HI medium. The slab represents
 #        the optically thick CGM, while the bicone provides low-opacity
 #        escape channels.
-#
-Geometry: ["Thin_Shell_Cont"]   # Single string or list of strings
+
+Geometry: ["Thin_Shell_Cont"]   # Single string or list of strings. If fitting two components just use one model here
 Mode: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
 Inflow: False  # Set to True for inflowing gas
-
-# =====================================================
-# Instrumental Settings
-# =====================================================
-
-# Instruments: MUSE, KCWI, XSHOOTER, MAGE, LLAMAS, None
-Instrument: "MUSE"
-
-# If Instrument is set to "None", custom settings must be provided:
-LSF_FWHM: 2.2 # @ Peak wavelength of Lyα line
-PixelScale: 1.0 # Wavelength spacing per pixel
-
-SNR: 1000.  # Signal-to-noise ratio for model spectrum (preferably do not change)
-
-# =====================================================
-# Units Settings
-# =====================================================
-
-WavelengthUnits: "Angstrom"   # Options: "Angstrom" (DO NOT CHANGE and make sure your data is in Angstroms)
-FluxUnits: "a.u." # "1e-20 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}" for MUSE data
 
 # =====================================================
 # Fixed Parameters (optional)
@@ -118,6 +102,87 @@ FixedParameters:
   TP:
     fixed: False
     value: 1
+
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++ FOR FITTING WITH TWO COMPONENTS, UNCOMMENT THIS WHOLE BLOCK +++
+
+# # =====================================================
+# # Parameter bounds for Second Component
+# # =====================================================
+
+# RedshiftBounds_2: [2, 2.1, 2.2, 3]
+# ExpVBounds_2: [0, 100, 700, 1000]            # km s**
+# LogNBounds_2: [17.1, 18, 20, 22]             # cm**-2, Upper bound can be increased to 22 for geometries other than Thin_Shell
+# TauBounds_2: [0.0001, 0.1, 0.9, 1]
+# FluxBounds_2: [0, 0.5, 1.5, 10]
+# LogEWBounds_2: [0.0, 0.01, 2.8, 2.9]         # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
+# IntrinsicWBounds_2: [0.01, 0.05, 5.5, 5.9]   # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
+# TPBounds_2: [0.0001, 0.002, 0.8, 1.0]
+
+# CalculateEscapeFraction_2: False # Set to True to calculate escape fraction
+
+# # =====================================================
+# # Model Selection for Second Component
+# # =====================================================
+
+# Geometry_2: "Thin_Shell_Cont"   # Single string
+# Mode_2: "LIGHT"   # 'LIGHT' for faster fitting, 'FULL' more RAM usage
+# Inflow_2: False  # Set to True for inflowing gas
+
+# # =====================================================
+# # Fixed Parameters (optional)
+# # =====================================================
+
+# FixedParameters_2:
+#   Redshift_2:
+#     fixed: False
+#     value: 2.182
+#   ExpV_2:
+#     fixed: False
+#     value: 400
+#   LogN_2:
+#     fixed: False
+#     value: 19.0
+#   Tau_2:
+#     fixed: False
+#     value: 0.5
+#   Flux_2:
+#     fixed: False
+#     value: 500
+#   LogEW_2:
+#     fixed: False
+#     value: 1.5
+#   IntrinsicW_2:
+#     fixed: False
+#     value: 2.0
+#   TP_2:
+#     fixed: False
+#     value: 1
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+# =====================================================
+# Instrumental Settings
+# =====================================================
+
+# Instruments: MUSE, KCWI, XSHOOTER, MAGE, LLAMAS, None
+Instrument: "MUSE"
+
+# If Instrument is set to "None", custom settings must be provided:
+LSF_FWHM: 2.2 # @ Peak wavelength of Lyα line
+PixelScale: 1.0 # Wavelength spacing per pixel
+
+SNR: 1000.  # Signal-to-noise ratio for model spectrum (preferably do not change)
+
+# =====================================================
+# Units Settings
+# =====================================================
+
+WavelengthUnits: "Angstrom"   # Options: "Angstrom" (DO NOT CHANGE and make sure your data is in Angstroms)
+FluxUnits: "a.u." # "1e-20 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}" for MUSE data
+
 
 # =====================================================
 # MCMC Settings
