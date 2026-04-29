@@ -132,10 +132,16 @@ class Plotter:
                 
             # Append to the original label (e.g., "V_t \n (p=0.04)")
             ll_with_pvalues.append(f"{ll_name}\n({p_str})")
+        
+        ndim = len(self.free_parameters)
+        # Multiply by 1.5 to ensure there is plenty of room for 8-10 parameters
+        custom_fig = plt.figure(figsize=(ndim * 3, ndim * 3))
 
         fig = corner.corner(
             samples,
+            fig=custom_fig,
             labels=ll_with_pvalues,
+            label_kwargs={'labelpad': 30},
             title_kwargs={'y': 1.05},
             title_fmt=".2f",
             use_math_text=True,
@@ -148,7 +154,12 @@ class Plotter:
         )
 
         covariance_path = 'Covariance.pdf'
-        fig.savefig(os.path.join(self.results_folder_path, covariance_path))
+        fig.savefig(
+            os.path.join(self.results_folder_path, covariance_path),
+            bbox_inches='tight',
+            pad_inches=0.2
+        )
+
         plt.close()
         return
 
