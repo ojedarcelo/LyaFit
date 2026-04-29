@@ -45,17 +45,36 @@ ll_dict = {
     'TP': 'T_p'
 }
 
+# --- Detect 2-Component Mode ---
+keys_2 = [
+    'RedshiftBounds_2', 'ExpVBounds_2', 'LogNBounds_2', 'TauBounds_2',
+    'FluxBounds_2', 'LogEWBounds_2', 'IntrinsicWBounds_2', 'TPBounds_2',
+    'CalculateEscapeFraction_2', 'Geometry_2', 'Mode_2', 'FixedParameters_2'
+]
+
+present_keys_2 = [k for k in keys_2 if k in ConfigFile]
+is_two_comp = len(present_keys_2) > 0
+
+if is_two_comp:
+    if len(present_keys_2) != len(keys_2):
+        missing = [k for k in keys_2 if k not in ConfigFile]
+        print(f"Error: Second model parameter block is semi-commented. Missing keys: {missing}")
+        sys.exit(1)
+        
+    ll_dict.update({
+        'Redshift_2': 'z_2', 'ExpV_2': 'V_t_2', 'LogN_2': 'Log_n_2', 'Tau_2': 't_t_2',
+        'Flux_2': 'F_t_2', 'LogEW_2': 'Log_EW_t_2', 'IntrinsicW_2': 'W_t_2', 'TP_2': 'T_p_2'
+    })
+
 line_df = pd.read_csv(ConfigFile['File'])
-
 line_df.columns = line_df.columns.str.strip()
-
-# here handle the case of inflow
 
 measured_wavelength = line_df['w_Arr']
 measured_flux = line_df['measured_flux']
 sigma = line_df['sigma']
 
-if ConfigFile['Inflow']:
+# Inflow is a global data property, applied to the entire spectrum
+if ConfigFile.get('Inflow', False):
     measured_flux = measured_flux[::-1]
     sigma = sigma[::-1]
 
@@ -68,32 +87,37 @@ for param in ConfigFile['FixedParameters']:
     else:
         free_parameters.append(param)
 
-Bounds = [param + 'Bounds' for param in free_parameters]
+if is_two_comp:
+    for param in ConfigFile['FixedParameters_2']:
+        if ConfigFile['FixedParameters_2'][param]['fixed']:
+            print(param, ' is fixed to ', ConfigFile['FixedParameters_2'][param]['value'])
+        else:
+            free_parameters.append(param)
 
-for b in Bounds:
-    if (ConfigFile[b][1] < ConfigFile[b][0] or
-        ConfigFile[b][1] > ConfigFile[b][3] or
-        ConfigFile[b][2] < ConfigFile[b][0] or
-            ConfigFile[b][2] > ConfigFile[b][3]):
-        print(
-            'Initial Guesses outside bounds for ',
-            b,
-            ' :',
-            ConfigFile[b])
+Bounds_dict = {}
+for param in free_parameters:
+    if param.endswith('_2'):
+        base = param[:-2]
+        Bounds_dict[param] = ConfigFile[base + 'Bounds_2']
+    else:
+        Bounds_dict[param] = ConfigFile[param + 'Bounds']
+
+for param, b in Bounds_dict.items():
+    if (b[1] < b[0] or b[1] > b[3] or b[2] < b[0] or b[2] > b[3]):
+        print(f'Initial Guesses outside bounds for {param}: {b}')
         exit()
 
 starting_guesses = []
-
 for i in range(ConfigFile['nwalkers']):
-    aux = [np.random.uniform(ConfigFile[param][1], ConfigFile[param][2]) for param in Bounds]
+    aux = [np.random.uniform(Bounds_dict[param][1], Bounds_dict[param][2]) for param in free_parameters]
     starting_guesses.append(np.array(aux))
 starting_guesses = np.array(starting_guesses)
+
 
 if __name__ == '__main__':
 
     print(starting_guesses.shape)
 
-    # Parse Geometry as a List or String
     geometry_input = ConfigFile.get('Geometry', 'Thin_Shell_Cont')
     if isinstance(geometry_input, str):
         geometries = [geometry_input]
@@ -103,20 +127,43 @@ if __name__ == '__main__':
         print("Error: Geometry must be a string or a list of strings.")
         sys.exit(1)
 
-    for current_geometry in geometries:
+    if is_two_comp:
+        geometry_input_2 = ConfigFile.get('Geometry_2')
+        if isinstance(geometry_input_2, str):
+            geometries_2 = [geometry_input_2]
+        elif isinstance(geometry_input_2, list):
+            geometries_2 = geometry_input_2
+        else:
+            print("Error: Geometry_2 must be a string or a list of strings.")
+            sys.exit(1)
+            
+        if len(geometries) > 1 or len(geometries_2) > 1:
+            print("Error: In 2-component mode, Geometry and Geometry_2 must evaluate to a single string.")
+            sys.exit(1)
+        loop_iterable = [(geometries[0], geometries_2[0])]
+    else:
+        loop_iterable = [(geom, None) for geom in geometries]
+
+
+    for current_geometry, current_geometry_2 in loop_iterable:
         print('\n' + 50 * '=')
-        print(f'*** FITTING GEOMETRY: {current_geometry} ***')
+        if is_two_comp:
+            print(f'*** FITTING GEOMETRY: {current_geometry} + {current_geometry_2} ***')
+        else:
+            print(f'*** FITTING GEOMETRY: {current_geometry} ***')
         print(50 * '=' + '\n')
 
-        # Create local copies for this iteration so modifications (like f_esc) don't leak
         run_config = copy.deepcopy(ConfigFile)
         run_config['Geometry'] = current_geometry
         
-        # Define specific output folder and append the geometry subfolder
-        run_output_folder = os.path.join(str(run_config['OutputFolder']), current_geometry)
+        if is_two_comp:
+            run_config['Geometry_2'] = current_geometry_2
+            run_output_folder = os.path.join(str(run_config['OutputFolder']), f"{current_geometry}_{current_geometry_2}")
+        else:
+            run_output_folder = os.path.join(str(run_config['OutputFolder']), current_geometry)
+            
         run_config['OutputFolder'] = run_output_folder
         
-        # Reset parameters and dictionaries for each loop
         run_free_parameters = copy.deepcopy(free_parameters)
         run_ll_dict = copy.deepcopy(ll_dict)
 
@@ -139,7 +186,10 @@ if __name__ == '__main__':
             free_params=run_free_parameters,
             ConfigFile=run_config,
             fwhm_t=FWHM_t,
-            pix_t=PIX_t
+            pix_t=PIX_t,
+            is_two_comp=is_two_comp,
+            geometry_2=current_geometry_2,
+            mode_2=run_config.get('Mode_2')
         )
 
         sampler = mcmc.fit_zelda_mcmc(
@@ -154,24 +204,23 @@ if __name__ == '__main__':
 
         chain = sampler.chain.copy()
         
-        if run_config.get('CalculateEscapeFraction', False):
+        if run_config.get('CalculateEscapeFraction', False) or (is_two_comp and run_config.get('CalculateEscapeFraction_2', False)):
             print(50 * '#')
-            print('*** Calculating Escape Fraction ***')
-            
+            print('*** Calculating Escape Fraction(s) ***')
             chain, run_free_parameters, run_ll_dict = append_escape_fraction(
                 chain=chain, 
                 free_parameters=run_free_parameters, 
                 ConfigFile=run_config, 
-                ll_dict=run_ll_dict
+                ll_dict=run_ll_dict,
+                is_two_comp=is_two_comp
             )
-            
             emcee_trace = chain.reshape((-1, len(run_free_parameters)))
 
         print(50 * '#')
         print('*** Best fit ***')
 
         for i in range(len(run_free_parameters)):
-            if run_free_parameters[i] != 'f_esc': 
+            if not run_free_parameters[i].startswith('f_esc'): 
                 print(run_free_parameters[i], ':', emcee_trace[np.argmax(lnprob)][i])
 
         theta = emcee_trace[np.argmax(lnprob)]
@@ -179,7 +228,6 @@ if __name__ == '__main__':
         print(50 * '#')
         print('*** Plotting Traces... ***')
 
-        # Create geometry-specific directory
         os.makedirs('Results', exist_ok=True)
         os.makedirs(os.path.join('Results', run_output_folder), exist_ok=True)
 
@@ -190,7 +238,8 @@ if __name__ == '__main__':
             free_parameters=run_free_parameters,
             ll_dict=run_ll_dict,
             flux_units=run_config['FluxUnits'],
-            ConfigFile=run_config
+            ConfigFile=run_config,
+            is_two_comp=is_two_comp
         )
 
         plotter.plot_convergence()
@@ -218,8 +267,8 @@ if __name__ == '__main__':
         valid_idx = np.isfinite(lnprob_aux)
         
         if np.sum(valid_idx) == 0:
-            print("ERROR: All walkers returned -inf likelihood. Your parameter bounds are entirely outside the zELDA grid.")
-            continue # <--- Changed to continue so it skips to the next geometry
+            print("ERROR: All walkers returned -inf likelihood.")
+            continue 
             
         samples_valid = samples[valid_idx]
         lnprob_valid = lnprob_aux[valid_idx]
@@ -239,10 +288,15 @@ if __name__ == '__main__':
         lnprob2 = lnprob2[valid_mask]
         
         if len(samples) == 0:
-            print("ERROR: All samples contained NaNs/Infs. Check your parameter bounds.")
-            continue # <--- Changed to continue so it skips to the next geometry
+            print("ERROR: All samples contained NaNs/Infs.")
+            continue 
 
+        # Plot Component 1
         plotter.plot_covariance(samples)
+        
+        # Plot Component 2 if active
+        if is_two_comp:
+            plotter.plot_covariance(samples, comp_suffix='_2')
 
         print(50 * '#')
         print('*** Posterior parameters and percentiles [16,50,84]***')
@@ -259,40 +313,29 @@ if __name__ == '__main__':
         print('*** Plotting Best Fit Over Line profile... ***')
 
         theta_aux = samples[np.argmax(lnprob2)]
+        
+        all_params_keys = list(run_config['FixedParameters'].keys())
+        if is_two_comp:
+            all_params_keys += list(run_config['FixedParameters_2'].keys())
 
         full_theta = build_full_theta(
-            list(run_config['FixedParameters'].keys()),
+            all_params_keys,
             run_config,
             theta_aux
         )
 
-        z_t = full_theta['Redshift']
-        V_t = full_theta['ExpV']
-        log_N_t = full_theta['LogN']
-        t_t = full_theta['Tau']
-        F_t = full_theta['Flux']
-        log_EW_t = full_theta['LogEW']
-        W_t = full_theta['IntrinsicW']
-        T_p = full_theta['TP']
-
-        w_One_Arr_MCMC, f_One_Arr_MCMC, resample, info, w_IGM_rest_Arr, T_IGM_Arr = lyamodel.generate_and_resample(
+        models_dict = lyamodel.generate_and_resample(
             w_Arr=measured_wavelength,
-            z_t=z_t,
-            V_t=V_t,
-            log_N_t=log_N_t,
-            t_t=t_t,
-            F_t=F_t,
-            log_EW_t=log_EW_t,
-            W_t=W_t,
-            T_p=T_p
+            theta_dict=full_theta
         )
 
         plotter.plot_best_fit(
             measured_wavelength,
             measured_flux,
             sigma,
-            resample,
-            z_t
+            models_dict,
+            full_theta,
+            is_two_comp
         )
 
         print('*** Plotting IGM transmission over Best Fit... ***')
@@ -301,16 +344,15 @@ if __name__ == '__main__':
             measured_wavelength,
             measured_flux,
             sigma,
-            resample,
-            z_t,
-            T_IGM_Arr,
-            T_p
+            models_dict,
+            full_theta,
+            is_two_comp
         )
 
         print('*** Saving results to CSV... ***')
 
         csv_handler = CSVHandler(
-            all_params=list(run_config['FixedParameters'].keys()),
+            all_params=all_params_keys,
             fitted_params=run_free_parameters,
             output_folder=run_output_folder,
             emcee_trace=samples,
@@ -322,9 +364,7 @@ if __name__ == '__main__':
         csv_handler.save_parameters_to_csv()
 
         print('*** Saving last 1000 iterations... ***')
-
         last_1000_chain = chain[:, -1000:, :]
-
         npy_path = os.path.join('Results', run_output_folder, 'last_1000_steps.npy')
         np.save(npy_path, last_1000_chain)
 

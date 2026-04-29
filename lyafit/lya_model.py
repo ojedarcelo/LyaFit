@@ -2,142 +2,154 @@ import numpy as np
 import Lya_zelda_II as Lya
 from lyafit.aux_funcs import generate_igm_transmission, build_full_theta
 
-# GLOBAL CACHE: Prevents multiprocessing from pickling the grid 
-# and corrupting the memory-mapped arrays across CPU cores.
 _GRID_CACHE = {}
 
 class LyaModel:
-    """
-    A class to load and manage different Lyman-alpha radiative transfer models from the Lya_zelda_II package.
-    """
-
-    def __init__(self, geometry, mode, free_params, ConfigFile, fwhm_t, pix_t):
+    def __init__(self, geometry, mode, free_params, ConfigFile, fwhm_t, pix_t, is_two_comp=False, geometry_2=None, mode_2=None):
         self.model_type = geometry
         self.mode = mode
         self.free_params = free_params
         self.ConfigFile = ConfigFile
         self.fwhm_t = fwhm_t
         self.pix_t = pix_t
+        self.is_two_comp = is_two_comp
+        self.model_type_2 = geometry_2
+        self.mode_2 = mode_2
 
-        self.param_names = [
-            "Redshift",
-            "ExpV",
-            "LogN",
-            "Tau",
-            "Flux",
-            "LogEW",
-            "IntrinsicW",
-            "TP",
-        ]
+        self.param_names = ["Redshift", "ExpV", "LogN", "Tau", "Flux", "LogEW", "IntrinsicW", "TP"]
+        
+        self.all_param_names = list(self.param_names)
+        if self.is_two_comp:
+            self.all_param_names += [p + "_2" for p in self.param_names]
 
         GRIDS_LOCATION = self.ConfigFile['GridsFolder']
         Lya.funcs.Data_location = GRIDS_LOCATION
 
-    def _get_grid(self):
-        """
-        Fetches the grid from the global cache. If it doesn't exist in the 
-        current worker's memory, it loads it.
-        """
+    def _get_grid(self, geom, mode):
         global _GRID_CACHE
-        cache_key = (self.model_type, self.mode)
+        cache_key = (geom, mode)
         
         if cache_key not in _GRID_CACHE:
             try:
-                _GRID_CACHE[cache_key] = Lya.load_Grid_Line(self.model_type, MODE=self.mode)
+                _GRID_CACHE[cache_key] = Lya.load_Grid_Line(geom, MODE=mode)
             except TypeError:
-                # Fallback if an older version of zELDA doesn't accept MODE for this geometry
-                _GRID_CACHE[cache_key] = Lya.load_Grid_Line(self.model_type)
+                _GRID_CACHE[cache_key] = Lya.load_Grid_Line(geom)
                 
         return _GRID_CACHE[cache_key]
 
     def lnprior(self, theta):
         for i, pname in enumerate(self.free_params):
-            bounds = self.ConfigFile[pname + 'Bounds']
+            if pname.startswith('f_esc'): 
+                continue 
+                
+            if pname.endswith('_2'):
+                base = pname[:-2]
+                bounds = self.ConfigFile[base + 'Bounds_2']
+            else:
+                bounds = self.ConfigFile[pname + 'Bounds']
+                
             if (theta[i] < bounds[0] or theta[i] > bounds[3]):
                 return -np.inf
         return 0.0
 
     def lnlike(self, theta, measured_wavelength, measured_flux, sigma):
-        p = build_full_theta(self.param_names, self.ConfigFile, theta)
+        p = build_full_theta(self.all_param_names, self.ConfigFile, theta)
         
-        # Load grid cleanly from the worker's RAM
-        grid = self._get_grid()
+        grid_1 = self._get_grid(self.model_type, self.mode)
 
-        w_IGM_rest_Arr, T_IGM_Arr = generate_igm_transmission(
-            measured_wavelength,
-            T_p=p['TP'],
-            z=p['Redshift']
+        w_IGM_rest_Arr_1, T_IGM_Arr_1 = generate_igm_transmission(
+            measured_wavelength, T_p=p['TP'], z=p['Redshift']
         )
 
-        y_model_w_Arr, y_model_f_Arr, _, info = Lya.Generate_a_real_line(
-            z_t=p["Redshift"],           
-            V_t=p["ExpV"],           
-            log_N_t=p["LogN"],       
-            t_t=p["Tau"],           
-            F_t=p["Flux"],           
-            log_EW_t=p["LogEW"],      
-            W_t=p["IntrinsicW"],           
-            PNR_t=self.ConfigFile['SNR'],            
-            FWHM_t=self.fwhm_t,            
-            PIX_t=self.pix_t,             
-            DATA_LyaRT=grid,  
-            Geometry=self.model_type,     
-            T_IGM_Arr=T_IGM_Arr,    
-            w_IGM_Arr=w_IGM_rest_Arr,  
-            RETURN_ALL=True,
+        y_model_w_Arr_1, y_model_f_Arr_1, _, _ = Lya.Generate_a_real_line(
+            z_t=p["Redshift"], V_t=p["ExpV"], log_N_t=p["LogN"], t_t=p["Tau"],
+            F_t=p["Flux"], log_EW_t=p["LogEW"], W_t=p["IntrinsicW"],
+            PNR_t=self.ConfigFile['SNR'], FWHM_t=self.fwhm_t, PIX_t=self.pix_t,
+            DATA_LyaRT=grid_1, Geometry=self.model_type,
+            T_IGM_Arr=T_IGM_Arr_1, w_IGM_Arr=w_IGM_rest_Arr_1, RETURN_ALL=True,
         )
 
-        # SAFETY CATCH: If the walkers wander out of the grid bounds and zELDA 
-        # returns an empty or broken array, penalize the likelihood so walkers turn back.
-        if np.all(y_model_f_Arr == 0) or np.any(np.isnan(y_model_f_Arr)):
+        if np.all(y_model_f_Arr_1 == 0) or np.any(np.isnan(y_model_f_Arr_1)):
             return -np.inf
 
-        y_model_f_Arr = np.interp(
-            measured_wavelength, y_model_w_Arr, y_model_f_Arr
-        )
+        y_model_f_tot = np.interp(measured_wavelength, y_model_w_Arr_1, y_model_f_Arr_1)
         
+        if self.is_two_comp:
+            grid_2 = self._get_grid(self.model_type_2, self.mode_2)
+            
+            w_IGM_rest_Arr_2, T_IGM_Arr_2 = generate_igm_transmission(
+                measured_wavelength, T_p=p['TP_2'], z=p['Redshift_2']
+            )
+
+            y_model_w_Arr_2, y_model_f_Arr_2, _, _ = Lya.Generate_a_real_line(
+                z_t=p["Redshift_2"], V_t=p["ExpV_2"], log_N_t=p["LogN_2"], t_t=p["Tau_2"],
+                F_t=p["Flux_2"], log_EW_t=p["LogEW_2"], W_t=p["IntrinsicW_2"],
+                PNR_t=self.ConfigFile['SNR'], FWHM_t=self.fwhm_t, PIX_t=self.pix_t,
+                DATA_LyaRT=grid_2, Geometry=self.model_type_2,
+                T_IGM_Arr=T_IGM_Arr_2, w_IGM_Arr=w_IGM_rest_Arr_2, RETURN_ALL=True,
+            )
+
+            if np.all(y_model_f_Arr_2 == 0) or np.any(np.isnan(y_model_f_Arr_2)):
+                return -np.inf
+
+            y_model_f_interp_2 = np.interp(measured_wavelength, y_model_w_Arr_2, y_model_f_Arr_2)
+            y_model_f_tot += y_model_f_interp_2
+
         return -0.5 * np.sum(np.log(2 * np.pi * sigma ** 2) +
-                             (measured_flux - y_model_f_Arr) ** 2 /
-                             sigma ** 2)
+                             (measured_flux - y_model_f_tot) ** 2 / sigma ** 2)
 
     def lnprob(self, theta, measured_wavelength, measured_flux, sigma):
         lp = self.lnprior(theta)
         if not np.isfinite(lp):
             return -np.inf
 
-        lnMeasured = self.lnlike(
-            theta,
-            measured_wavelength,
-            measured_flux,
-            sigma)
+        lnMeasured = self.lnlike(theta, measured_wavelength, measured_flux, sigma)
         if not np.isfinite(lnMeasured):
             return -np.inf
 
         return lp + lnMeasured
 
-    def generate_and_resample(self, w_Arr, z_t, V_t, log_N_t, t_t, F_t, log_EW_t, W_t, T_p):
-        w_IGM_rest_Arr, T_IGM_Arr = generate_igm_transmission(
-            w_Arr, T_p=T_p, z=z_t)
-
-        grid = self._get_grid()
-
-        w_One_Arr_MCMC, f_One_Arr_MCMC, _, info = Lya.Generate_a_real_line(
-            z_t=z_t,
-            V_t=V_t,
-            log_N_t=log_N_t,
-            t_t=t_t,
-            F_t=F_t,
-            log_EW_t=log_EW_t,
-            W_t=W_t,
-            PNR_t=self.ConfigFile['SNR'],
-            FWHM_t=self.fwhm_t,
-            PIX_t=self.pix_t,
-            DATA_LyaRT=grid,
-            Geometry=self.model_type,
-            T_IGM_Arr=T_IGM_Arr,
-            w_IGM_Arr=w_IGM_rest_Arr,
-            RETURN_ALL=True
+    def generate_and_resample(self, w_Arr, theta_dict):
+        p = theta_dict
+        
+        grid_1 = self._get_grid(self.model_type, self.mode)
+        w_IGM_rest_Arr_1, T_IGM_Arr_1 = generate_igm_transmission(w_Arr, T_p=p['TP'], z=p['Redshift'])
+        
+        w_One_Arr_MCMC_1, f_One_Arr_MCMC_1, _, info_1 = Lya.Generate_a_real_line(
+            z_t=p["Redshift"], V_t=p["ExpV"], log_N_t=p["LogN"], t_t=p["Tau"],
+            F_t=p["Flux"], log_EW_t=p["LogEW"], W_t=p["IntrinsicW"],
+            PNR_t=self.ConfigFile['SNR'], FWHM_t=self.fwhm_t, PIX_t=self.pix_t,
+            DATA_LyaRT=grid_1, Geometry=self.model_type,
+            T_IGM_Arr=T_IGM_Arr_1, w_IGM_Arr=w_IGM_rest_Arr_1, RETURN_ALL=True
         )
+        
+        resample_1 = np.interp(w_Arr, w_One_Arr_MCMC_1, f_One_Arr_MCMC_1)
+        
+        models_dict = {
+            'w_1': w_One_Arr_MCMC_1, 'f_1': f_One_Arr_MCMC_1, 'resample_1': resample_1,
+            'w_IGM_1': w_IGM_rest_Arr_1, 'T_IGM_1': T_IGM_Arr_1, 'info_1': info_1,
+            'resample_tot': resample_1.copy()
+        }
 
-        resample = np.interp(w_Arr, w_One_Arr_MCMC, f_One_Arr_MCMC)
-        return w_One_Arr_MCMC, f_One_Arr_MCMC, resample, info, w_IGM_rest_Arr, T_IGM_Arr
+        if self.is_two_comp:
+            grid_2 = self._get_grid(self.model_type_2, self.mode_2)
+            w_IGM_rest_Arr_2, T_IGM_Arr_2 = generate_igm_transmission(w_Arr, T_p=p['TP_2'], z=p['Redshift_2'])
+            
+            w_One_Arr_MCMC_2, f_One_Arr_MCMC_2, _, info_2 = Lya.Generate_a_real_line(
+                z_t=p["Redshift_2"], V_t=p["ExpV_2"], log_N_t=p["LogN_2"], t_t=p["Tau_2"],
+                F_t=p["Flux_2"], log_EW_t=p["LogEW_2"], W_t=p["IntrinsicW_2"],
+                PNR_t=self.ConfigFile['SNR'], FWHM_t=self.fwhm_t, PIX_t=self.pix_t,
+                DATA_LyaRT=grid_2, Geometry=self.model_type_2,
+                T_IGM_Arr=T_IGM_Arr_2, w_IGM_Arr=w_IGM_rest_Arr_2, RETURN_ALL=True
+            )
+            
+            resample_2 = np.interp(w_Arr, w_One_Arr_MCMC_2, f_One_Arr_MCMC_2)
+            
+            models_dict.update({
+                'w_2': w_One_Arr_MCMC_2, 'f_2': f_One_Arr_MCMC_2, 'resample_2': resample_2,
+                'w_IGM_2': w_IGM_rest_Arr_2, 'T_IGM_2': T_IGM_Arr_2, 'info_2': info_2
+            })
+            
+            models_dict['resample_tot'] = resample_1 + resample_2
+
+        return models_dict

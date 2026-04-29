@@ -16,14 +16,15 @@ cc = sns.color_palette()
 
 
 class Plotter:
-    def __init__(self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units, ConfigFile): # <--- Added ConfigFile
+    def __init__(self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units, ConfigFile, is_two_comp=False):
         self.chain = chain
         self.lnprob = lnprob
         self.results_folder_path = os.path.join('Results', output_folder)
         self.free_parameters = free_parameters
         self.ll_dict = ll_dict
         self.flux_units = flux_units
-        self.ConfigFile = ConfigFile # <--- Added attribute
+        self.ConfigFile = ConfigFile
+        self.is_two_comp = is_two_comp
 
         self.LYA_WAVELENGTH = 1215.67  # Lyman-alpha wavelength in Angstroms
 
@@ -53,11 +54,7 @@ class Plotter:
             print('Negative values in Convergence....')
 
         convergence_path = 'Convergence.png'
-        plt.savefig(
-            os.path.join(
-                self.results_folder_path,
-                convergence_path),
-            dpi=300)
+        plt.savefig(os.path.join(self.results_folder_path, convergence_path), dpi=300)
         plt.close()
         return
 
@@ -73,24 +70,13 @@ class Plotter:
             plt.figure()
             if min(y) > 0 and (max(y) / min(y)) > 50:
                 plt.hexbin(
-                    x,
-                    y,
-                    gridsize=[70, 30],
-                    cmap='inferno',
-                    bins='log',
-                    mincnt=1,
-                    yscale='log',
-                    linewidths=0
+                    x, y, gridsize=[70, 30], cmap='inferno',
+                    bins='log', mincnt=1, yscale='log', linewidths=0
                 )
             else:
                 plt.hexbin(
-                    x,
-                    y,
-                    gridsize=[70, 30],
-                    cmap='inferno',
-                    bins='log',
-                    mincnt=1,
-                    linewidths=0
+                    x, y, gridsize=[70, 30], cmap='inferno',
+                    bins='log', mincnt=1, linewidths=0
                 )
             plt.ylabel(self.ll_dict[self.free_parameters[ID]])
             plt.xlabel('iteration')
@@ -98,47 +84,52 @@ class Plotter:
             plt.ylim(min(y), max(y))
 
             trace_path = self.ll_dict[self.free_parameters[ID]] + '_trace.png'
-            plt.savefig(
-                os.path.join(
-                    self.results_folder_path,
-                    trace_path),
-                dpi=300)
+            plt.savefig(os.path.join(self.results_folder_path, trace_path), dpi=300)
             plt.close()
-
         return
 
-    def plot_covariance(self, samples):
-
+    def plot_covariance(self, samples, comp_suffix=''):
         ll_with_pvalues = []
+        comp_indices = []
 
         for i, p_name in enumerate(self.free_parameters):
+            is_comp_2 = p_name.endswith('_2') or p_name == 'f_esc_2'
+            
+            # Split the logic so we only graph Component 1 OR Component 2
+            if comp_suffix == '_2' and not is_comp_2:
+                continue
+            if comp_suffix == '' and is_comp_2:
+                continue
+
+            comp_indices.append(i)
             trace = samples.T[i]
             ll_name = self.ll_dict[p_name]
             
-            # Calculate KS Test
-            if p_name == 'f_esc':
+            if p_name.startswith('f_esc'):
                 loc, scale = 0.0, 1.0
             else:
-                bounds = self.ConfigFile[p_name + 'Bounds']
+                if p_name.endswith('_2'):
+                    base = p_name[:-2]
+                    bounds = self.ConfigFile[base + 'Bounds_2']
+                else:
+                    bounds = self.ConfigFile[p_name + 'Bounds']
                 loc, scale = bounds[0], bounds[3] - bounds[0]
                 
             _, p_value = stats.kstest(trace, stats.uniform(loc=loc, scale=scale).cdf)
             
-            # Format the p-value cleanly
             if p_value < 0.001:
                 p_str = "p < 0.001"
             else:
                 p_str = f"p={p_value:.3f}"
                 
-            # Append to the original label (e.g., "V_t \n (p=0.04)")
             ll_with_pvalues.append(f"{ll_name}\n({p_str})")
         
-        ndim = len(self.free_parameters)
-        # Multiply by 1.5 to ensure there is plenty of room for 8-10 parameters
+        comp_samples = samples[:, comp_indices]
+        ndim = len(comp_indices)
         custom_fig = plt.figure(figsize=(ndim * 3, ndim * 3))
 
         fig = corner.corner(
-            samples,
+            comp_samples,
             fig=custom_fig,
             labels=ll_with_pvalues,
             label_kwargs={'labelpad': 30},
@@ -153,134 +144,105 @@ class Plotter:
             contour_kwargs={'linewidths': 1, 'colors': 'black'}
         )
 
-        covariance_path = 'Covariance.pdf'
+        covariance_path = f'Covariance{comp_suffix}.pdf'
         fig.savefig(
             os.path.join(self.results_folder_path, covariance_path),
             bbox_inches='tight',
             pad_inches=0.2
         )
-
         plt.close()
         return
 
-
-    def plot_best_fit(self, measured_wavelength, measured_flux, sigma, resample, z_t):
-
+    def plot_best_fit(self, measured_wavelength, measured_flux, sigma, models_dict, full_theta, is_two_comp):
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(
-            measured_wavelength,
-            measured_flux,
-            c='k',
-            drawstyle='steps-mid',
-            linewidth=1)
-        ax.plot(
-            measured_wavelength,
-            sigma,
-            c='blue',
-            drawstyle='steps-mid',
-            linewidth=1.5,
-            alpha=0.4,
-            label='Noise')
+        ax.plot(measured_wavelength, measured_flux, c='k', drawstyle='steps-mid', linewidth=1)
+        ax.plot(measured_wavelength, sigma, c='blue', drawstyle='steps-mid', linewidth=1.5, alpha=0.4, label='Noise')
 
-        ax.plot(
-            measured_wavelength,
-            resample,
-            c='g',
-            label='MCMC Model',
-            drawstyle='steps-mid')
+        if is_two_comp:
+            geom1 = self.ConfigFile.get('Geometry', 'Model 1')
+            geom2 = self.ConfigFile.get('Geometry_2', 'Model 2')
+            
+            ax.plot(measured_wavelength, models_dict['resample_1'], c='r', 
+                    label=f'Component 1: {geom1}', drawstyle='steps-mid', alpha=0.6)
+            ax.plot(measured_wavelength, models_dict['resample_2'], c='b', 
+                    label=f'Component 2: {geom2}', drawstyle='steps-mid', alpha=0.6)
+            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g', 
+                    label='Full Model', drawstyle='steps-mid', linewidth=2)
+        else:
+            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g', 
+                    label='MCMC Model', drawstyle='steps-mid')
 
         ax.set_xlabel(r'$\lambda$ (Angstrom)')
-        ax.set_ylabel(
-            r'Flux ({})'.format(self.flux_units))
+        ax.set_ylabel(r'Flux ({})'.format(self.flux_units))
         ax.axhline(0, color='r', ls='--')
 
-        redshifted_wavelength = self.LYA_WAVELENGTH * (1 + z_t)
-
-        is_z_fixed = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
+        z_t_1 = full_theta['Redshift']
+        is_z_fixed_1 = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
         
-        if is_z_fixed:
-            z_label = 'Systemic Lya Redshift\nz={}'.format(round(z_t, 3))
-        else:
-            z_label = 'Best Fit Lya Wavelength\nz={}'.format(round(z_t, 3))
+        z_label_1 = f'Sys Lya z={round(z_t_1, 3)}' if is_z_fixed_1 else f'Best Fit Lya z={round(z_t_1, 3)}'
+        ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_1), color='orange', ls='--', label=z_label_1)
 
-        ax.axvline(
-            redshifted_wavelength,
-            color='orange',
-            ls='--',
-            label=z_label
-        )
+        if is_two_comp:
+            z_t_2 = full_theta['Redshift_2']
+            is_z_fixed_2 = self.ConfigFile.get('FixedParameters_2', {}).get('Redshift_2', {}).get('fixed', False)
+            z_label_2 = f'Sys Lya 2 z={round(z_t_2, 3)}' if is_z_fixed_2 else f'Best Fit Lya 2 z={round(z_t_2, 3)}'
+            ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_2), color='magenta', ls='--', label=z_label_2)
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
         best_fit_path = 'BestFitOverLine.png'
-        fig.savefig(
-            os.path.join(self.results_folder_path, best_fit_path),
-            dpi=450,
-            bbox_inches='tight'
-        )
+        fig.savefig(os.path.join(self.results_folder_path, best_fit_path), dpi=450, bbox_inches='tight')
         plt.close()
         return
 
-    def plot_best_fit_igm(self, measured_wavelength, measured_flux, sigma, resample, z_t, T_IGM_Arr, T_p):
-
+    def plot_best_fit_igm(self, measured_wavelength, measured_flux, sigma, models_dict, full_theta, is_two_comp):
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(
-            measured_wavelength,
-            measured_flux * 1. / np.amax(measured_flux),
-            c='k',
-            drawstyle='steps-mid',
-            linewidth=1)
-        ax.plot(
-            measured_wavelength,
-            sigma * 1. / np.amax(measured_flux),
-            c='blue',
-            drawstyle='steps-mid',
-            linewidth=1.5,
-            alpha=0.4,
-            label='Noise')
+        
+        ax.plot(measured_wavelength, measured_flux * 1. / np.amax(measured_flux), c='k', drawstyle='steps-mid', linewidth=1)
+        ax.plot(measured_wavelength, sigma * 1. / np.amax(measured_flux), c='blue', drawstyle='steps-mid', linewidth=1.5, alpha=0.4, label='Noise')
 
-        ax.plot(
-            measured_wavelength,
-            resample * 1. / np.amax(resample),
-            c='g',
-            label='MCMC Model',
-            drawstyle='steps-mid')
-
-        ax.plot(
-            measured_wavelength,
-            T_IGM_Arr,
-            c='purple',
-            label='IGM Transmission Best Fit,\nT_p = {:.3f}'.format(T_p)
-        )
+        if is_two_comp:
+            geom1 = self.ConfigFile.get('Geometry', 'Model 1')
+            geom2 = self.ConfigFile.get('Geometry_2', 'Model 2')
+            
+            resample_norm = np.amax(models_dict['resample_tot'])
+            
+            ax.plot(measured_wavelength, models_dict['resample_1'] / resample_norm, c='r', 
+                    label=f'Component 1: {geom1}', drawstyle='steps-mid', alpha=0.6)
+            ax.plot(measured_wavelength, models_dict['resample_2'] / resample_norm, c='b', 
+                    label=f'Component 2: {geom2}', drawstyle='steps-mid', alpha=0.6)
+            ax.plot(measured_wavelength, models_dict['resample_tot'] / resample_norm, c='g', 
+                    label='Full Model', drawstyle='steps-mid', linewidth=2)
+            
+            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='purple', 
+                    label='IGM 1, T_p = {:.3f}'.format(full_theta['TP']))
+            ax.plot(measured_wavelength, models_dict['T_IGM_2'], c='brown', 
+                    label='IGM 2, T_p = {:.3f}'.format(full_theta['TP_2']))
+        else:
+            ax.plot(measured_wavelength, models_dict['resample_tot'] * 1. / np.amax(models_dict['resample_tot']), 
+                    c='g', label='MCMC Model', drawstyle='steps-mid')
+            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='purple', 
+                    label='IGM Transmission, T_p = {:.3f}'.format(full_theta['TP']))
 
         ax.set_xlabel(r'$\lambda$ (Angstrom)')
-        ax.set_ylabel(
-            r'Flux (a. u.)')
+        ax.set_ylabel(r'Flux (a. u.)')
         ax.axhline(0, color='r', ls='--')
 
-        redshifted_wavelength = self.LYA_WAVELENGTH * (1 + z_t)
-
-        is_z_fixed = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
+        z_t_1 = full_theta['Redshift']
+        is_z_fixed_1 = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
         
-        if is_z_fixed:
-            z_label = 'Systemic Lya Redshift\nz={}'.format(round(z_t, 3))
-        else:
-            z_label = 'Best Fit Lya Wavelength\nz={}'.format(round(z_t, 3))
+        z_label_1 = f'Sys Lya z={round(z_t_1, 3)}' if is_z_fixed_1 else f'Best Fit Lya z={round(z_t_1, 3)}'
+        ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_1), color='orange', ls='--', label=z_label_1)
 
-        ax.axvline(
-            redshifted_wavelength,
-            color='orange',
-            ls='--',
-            label=z_label
-        )
+        if is_two_comp:
+            z_t_2 = full_theta['Redshift_2']
+            is_z_fixed_2 = self.ConfigFile.get('FixedParameters_2', {}).get('Redshift_2', {}).get('fixed', False)
+            z_label_2 = f'Sys Lya 2 z={round(z_t_2, 3)}' if is_z_fixed_2 else f'Best Fit Lya 2 z={round(z_t_2, 3)}'
+            ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_2), color='magenta', ls='--', label=z_label_2)
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
         best_fit_path = 'BestFitOverLine_IGM.png'
-        fig.savefig(
-            os.path.join(self.results_folder_path, best_fit_path),
-            dpi=450,
-            bbox_inches='tight'
-        )
+        fig.savefig(os.path.join(self.results_folder_path, best_fit_path), dpi=450, bbox_inches='tight')
         plt.close()
         return

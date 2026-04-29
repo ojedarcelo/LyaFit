@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from scipy import stats  # <--- NEW IMPORT
+from scipy import stats 
 
 class CSVHandler:
     def __init__(self, all_params, fitted_params, output_folder, emcee_trace, lnprob, ConfigFile, ll_dict):
@@ -23,23 +23,23 @@ class CSVHandler:
             trace = self.emcee_trace.T[i]
             
             # --- KS Test for Uniformity ---
-            if param_name == 'f_esc':
-                # Escape fraction is naturally bounded between 0 and 1
+            if param_name.startswith('f_esc'):
                 loc = 0.0
                 scale = 1.0
             else:
-                # Fetch absolute min and max from ConfigFile: [min, init_low, init_high, max]
-                bounds = self.ConfigFile[param_name + 'Bounds']
+                if param_name.endswith('_2'):
+                    base = param_name[:-2]
+                    bounds = self.ConfigFile[base + 'Bounds_2']
+                else:
+                    bounds = self.ConfigFile[param_name + 'Bounds']
                 loc = min(trace)
-                scale = max(trace) # Scale is the width of the distribution
+                scale = max(trace)
             
-            # Calculate KS statistic and p-value
             ks_stat, p_value = stats.kstest(trace, stats.uniform(loc=loc, scale=scale).cdf)
             new_row[ll_name + '_pvalue'] = p_value
             # ----------------------------------------
             
-            # Exclude bestfit if the parameter is f_esc
-            if param_name != 'f_esc':
+            if not param_name.startswith('f_esc'):
                 new_row[ll_name + '_bestfit'] = self.emcee_trace[np.argmax(self.lnprob)][i]
                 
             new_row[ll_name + '_16'] = np.percentile(trace, 16)
@@ -50,7 +50,10 @@ class CSVHandler:
 
         for param in self.all_params:
             if param not in self.fitted_params:
-                fp = self.ConfigFile["FixedParameters"][param]
+                if param.endswith('_2'):
+                    fp = self.ConfigFile["FixedParameters_2"][param]
+                else:
+                    fp = self.ConfigFile["FixedParameters"][param]
                 new_row[param + '_fixed'] = fp["value"]
 
         df = pd.DataFrame([new_row])
