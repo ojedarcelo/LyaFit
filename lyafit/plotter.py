@@ -3,8 +3,11 @@ import corner
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import astropy.constants as const
 from scipy import stats
 from matplotlib import rcParams
+
+from lyafit.aux_funcs import w2v, v2w
 
 
 rcParams.update({'figure.autolayout': True})
@@ -16,7 +19,10 @@ cc = sns.color_palette()
 
 
 class Plotter:
-    def __init__(self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units, ConfigFile, is_two_comp=False):
+
+    def __init__(
+            self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units, ConfigFile, is_two_comp=False
+    ):
         self.chain = chain
         self.lnprob = lnprob
         self.results_folder_path = os.path.join('Results', output_folder)
@@ -94,7 +100,7 @@ class Plotter:
 
         for i, p_name in enumerate(self.free_parameters):
             is_comp_2 = p_name.endswith('_2') or p_name == 'f_esc_2'
-            
+
             # Split the logic so we only graph Component 1 OR Component 2
             if comp_suffix == '_2' and not is_comp_2:
                 continue
@@ -104,7 +110,7 @@ class Plotter:
             comp_indices.append(i)
             trace = samples.T[i]
             ll_name = self.ll_dict[p_name]
-            
+
             if p_name.startswith('f_esc'):
                 loc, scale = 0.0, 1.0
             else:
@@ -114,16 +120,16 @@ class Plotter:
                 else:
                     bounds = self.ConfigFile[p_name + 'Bounds']
                 loc, scale = bounds[0], bounds[3] - bounds[0]
-                
+
             _, p_value = stats.kstest(trace, stats.uniform(loc=loc, scale=scale).cdf)
-            
+
             if p_value < 0.001:
                 p_str = "p < 0.001"
             else:
                 p_str = f"p={p_value:.3f}"
-                
+
             ll_with_pvalues.append(f"{ll_name}\n({p_str})")
-        
+
         comp_samples = samples[:, comp_indices]
         ndim = len(comp_indices)
         custom_fig = plt.figure(figsize=(ndim * 3, ndim * 3))
@@ -161,24 +167,33 @@ class Plotter:
         if is_two_comp:
             geom1 = self.ConfigFile.get('Geometry', 'Model 1')
             geom2 = self.ConfigFile.get('Geometry_2', 'Model 2')
-            
-            ax.plot(measured_wavelength, models_dict['resample_1'], c='r', 
+
+            ax.plot(measured_wavelength, models_dict['resample_1'], c='r',
                     label=f'Component 1: {geom1}', drawstyle='steps-mid', alpha=0.6)
-            ax.plot(measured_wavelength, models_dict['resample_2'], c='b', 
+            ax.plot(measured_wavelength, models_dict['resample_2'], c='b',
                     label=f'Component 2: {geom2}', drawstyle='steps-mid', alpha=0.6)
-            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g', 
+            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g',
                     label='Full Model', drawstyle='steps-mid', linewidth=2)
         else:
-            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g', 
+            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g',
                     label='MCMC Model', drawstyle='steps-mid')
 
-        ax.set_xlabel(r'$\lambda$ (Angstrom)')
-        ax.set_ylabel(r'Flux ({})'.format(self.flux_units))
+        ax.set_xlabel(r'$\lambda$ (Angstrom)', fontsize=16)
+        ax.set_ylabel(r'Flux ({})'.format(self.flux_units), fontsize=16)
         ax.axhline(0, color='r', ls='--')
 
         z_t_1 = full_theta['Redshift']
+        lambda_0 = self.LYA_WAVELENGTH * (1 + z_t_1)
+        c_kms = const.c.to('km/s').value
+
+        secax = ax.secondary_xaxis(
+            'top',
+            functions=(lambda w: w2v(w, lambda_0, c_kms), lambda v: v2w(v, lambda_0, c_kms))
+        )
+        secax.set_xlabel('Velocity (km/s)', labelpad=10, fontsize=16)
+
         is_z_fixed_1 = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
-        
+
         z_label_1 = f'Sys Lya z={round(z_t_1, 3)}' if is_z_fixed_1 else f'Best Fit Lya z={round(z_t_1, 3)}'
         ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_1), color='orange', ls='--', label=z_label_1)
 
@@ -187,6 +202,9 @@ class Plotter:
             is_z_fixed_2 = self.ConfigFile.get('FixedParameters_2', {}).get('Redshift_2', {}).get('fixed', False)
             z_label_2 = f'Sys Lya 2 z={round(z_t_2, 3)}' if is_z_fixed_2 else f'Best Fit Lya 2 z={round(z_t_2, 3)}'
             ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_2), color='magenta', ls='--', label=z_label_2)
+
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        secax.tick_params(axis='x', which='major', labelsize=12)
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
@@ -197,40 +215,62 @@ class Plotter:
 
     def plot_best_fit_igm(self, measured_wavelength, measured_flux, sigma, models_dict, full_theta, is_two_comp):
         fig, ax = plt.subplots(figsize=(8, 6))
-        
-        ax.plot(measured_wavelength, measured_flux * 1. / np.amax(measured_flux), c='k', drawstyle='steps-mid', linewidth=1)
-        ax.plot(measured_wavelength, sigma * 1. / np.amax(measured_flux), c='blue', drawstyle='steps-mid', linewidth=1.5, alpha=0.4, label='Noise')
+
+        ax.plot(
+            measured_wavelength, measured_flux * 1. / np.amax(measured_flux),
+            c='k',
+            drawstyle='steps-mid',
+            linewidth=1
+        )
+
+        ax.plot(
+            measured_wavelength, sigma * 1. / np.amax(measured_flux),
+            c='blue',
+            drawstyle='steps-mid',
+            linewidth=1.5,
+            alpha=0.4,
+            label='Noise'
+        )
 
         if is_two_comp:
             geom1 = self.ConfigFile.get('Geometry', 'Model 1')
             geom2 = self.ConfigFile.get('Geometry_2', 'Model 2')
-            
+
             resample_norm = np.amax(models_dict['resample_tot'])
-            
-            ax.plot(measured_wavelength, models_dict['resample_1'] / resample_norm, c='r', 
+
+            ax.plot(measured_wavelength, models_dict['resample_1'] / resample_norm, c='r',
                     label=f'Component 1: {geom1}', drawstyle='steps-mid', alpha=0.6)
-            ax.plot(measured_wavelength, models_dict['resample_2'] / resample_norm, c='b', 
+            ax.plot(measured_wavelength, models_dict['resample_2'] / resample_norm, c='b',
                     label=f'Component 2: {geom2}', drawstyle='steps-mid', alpha=0.6)
-            ax.plot(measured_wavelength, models_dict['resample_tot'] / resample_norm, c='g', 
+            ax.plot(measured_wavelength, models_dict['resample_tot'] / resample_norm, c='g',
                     label='Full Model', drawstyle='steps-mid', linewidth=2)
-            
-            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='purple', 
+
+            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='purple',
                     label='IGM 1, T_p = {:.3f}'.format(full_theta['TP']))
-            ax.plot(measured_wavelength, models_dict['T_IGM_2'], c='brown', 
+            ax.plot(measured_wavelength, models_dict['T_IGM_2'], c='brown',
                     label='IGM 2, T_p = {:.3f}'.format(full_theta['TP_2']))
         else:
-            ax.plot(measured_wavelength, models_dict['resample_tot'] * 1. / np.amax(models_dict['resample_tot']), 
+            ax.plot(measured_wavelength, models_dict['resample_tot'] * 1. / np.amax(models_dict['resample_tot']),
                     c='g', label='MCMC Model', drawstyle='steps-mid')
-            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='purple', 
+            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='purple',
                     label='IGM Transmission, T_p = {:.3f}'.format(full_theta['TP']))
 
-        ax.set_xlabel(r'$\lambda$ (Angstrom)')
-        ax.set_ylabel(r'Flux (a. u.)')
+        ax.set_xlabel(r'$\lambda$ (Angstrom)', fontsize=16)
+        ax.set_ylabel(r'Flux (a. u.)', fontsize=16)
         ax.axhline(0, color='r', ls='--')
 
         z_t_1 = full_theta['Redshift']
+        lambda_0 = self.LYA_WAVELENGTH * (1 + z_t_1)
+        c_kms = const.c.to('km/s').value
+
+        secax = ax.secondary_xaxis(
+            'top',
+            functions=(lambda w: w2v(w, lambda_0, c_kms), lambda v: v2w(v, lambda_0, c_kms))
+        )
+        secax.set_xlabel('Velocity (km/s)', labelpad=10, fontsize=16)
+
         is_z_fixed_1 = self.ConfigFile.get('FixedParameters', {}).get('Redshift', {}).get('fixed', False)
-        
+
         z_label_1 = f'Sys Lya z={round(z_t_1, 3)}' if is_z_fixed_1 else f'Best Fit Lya z={round(z_t_1, 3)}'
         ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_1), color='orange', ls='--', label=z_label_1)
 
@@ -239,6 +279,9 @@ class Plotter:
             is_z_fixed_2 = self.ConfigFile.get('FixedParameters_2', {}).get('Redshift_2', {}).get('fixed', False)
             z_label_2 = f'Sys Lya 2 z={round(z_t_2, 3)}' if is_z_fixed_2 else f'Best Fit Lya 2 z={round(z_t_2, 3)}'
             ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_2), color='magenta', ls='--', label=z_label_2)
+
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        secax.tick_params(axis='x', which='major', labelsize=12)
 
         ax.legend(loc=2, prop={'size': 10})
         plt.tight_layout()
