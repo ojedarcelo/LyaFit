@@ -61,3 +61,21 @@ class CSVHandler:
 
         df.to_csv(csv_path, index=False)
         return
+
+    def save_fitted_spectrum_to_csv(self, w_arr, models_dict, is_two_comp):
+        """
+        Saves the best-fit model arrays alongside the wavelength array to a CSV file.
+        """
+        data = {'w_Arr': w_arr}
+        
+        if is_two_comp:
+            data['fitted_flux'] = models_dict['resample_1']
+            data['fitted_flux_2'] = models_dict['resample_2']
+            data['total_flux'] = models_dict['resample_tot']
+        else:
+            data['fitted_flux'] = models_dict['resample_tot']
+            
+        df = pd.DataFrame(data)
+        csv_path = os.path.join('Results', self.output_folder, 'fitted_spectrum.csv')
+        df.to_csv(csv_path, index=False)
+        return

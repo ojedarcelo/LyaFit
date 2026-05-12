@@ -69,9 +69,9 @@ if is_two_comp:
 line_df = pd.read_csv(ConfigFile['File'])
 line_df.columns = line_df.columns.str.strip()
 
-measured_wavelength = line_df['w_Arr']
-measured_flux = line_df['measured_flux']
-sigma = line_df['sigma']
+measured_wavelength = line_df['w_Arr'].values
+measured_flux = line_df['measured_flux'].values
+sigma = line_df['sigma'].values
 
 # Inflow is a global data property, applied to the entire spectrum
 if ConfigFile.get('Inflow', False):
@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
         lyamodel = LyaModel(
             geometry=current_geometry,
-            mode=run_config['Mode'],
+            mode=run_config.get('Mode', 'Light'),
             free_params=run_free_parameters,
             ConfigFile=run_config,
             fwhm_t=FWHM_t,
@@ -349,7 +349,7 @@ if __name__ == '__main__':
             is_two_comp
         )
 
-        print('*** Saving results to CSV... ***')
+        print('*** Saving results and fitted spectrum to CSV... ***')
 
         csv_handler = CSVHandler(
             all_params=all_params_keys,
@@ -361,7 +361,15 @@ if __name__ == '__main__':
             ll_dict=run_ll_dict
         )
 
+        # Save standard parameters
         csv_handler.save_parameters_to_csv()
+        
+        # Save the new fitted arrays
+        csv_handler.save_fitted_spectrum_to_csv(
+            w_arr=measured_wavelength,
+            models_dict=models_dict,
+            is_two_comp=is_two_comp
+        )
 
         print('*** Saving last 1000 iterations... ***')
         last_1000_chain = chain[:, -1000:, :]
