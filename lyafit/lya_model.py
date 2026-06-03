@@ -1,11 +1,12 @@
 import numpy as np
 import Lya_zelda_II as Lya
-from lyafit.aux_funcs import generate_igm_transmission, build_full_theta
+from lyafit.aux_funcs import generate_igm_transmission, build_full_theta, gaussian
 
 _GRID_CACHE = {}
 
 class LyaModel:
-    def __init__(self, geometry, mode, free_params, ConfigFile, fwhm_t, pix_t, is_two_comp=False, geometry_2=None, mode_2=None):
+    def __init__(self, geometry, mode, free_params, ConfigFile, fwhm_t, pix_t,
+                 is_two_comp=False, geometry_2=None, mode_2=None, gaussian_component=False):
         self.model_type = geometry
         self.mode = mode
         self.free_params = free_params
@@ -15,10 +16,12 @@ class LyaModel:
         self.is_two_comp = is_two_comp
         self.model_type_2 = geometry_2
         self.mode_2 = mode_2
+        self.gaussian_component = gaussian_component
 
         self.param_names = ["Redshift", "ExpV", "LogN", "Tau", "Flux", "LogEW", "IntrinsicW", "TP"]
+        self.gaussian_param_names = ["GaussianCenter", "GaussianFWHM", "GaussianAmplitude"] if self.gaussian_component else []
         
-        self.all_param_names = list(self.param_names)
+        self.all_param_names = list(self.param_names) + self.gaussian_param_names
         if self.is_two_comp:
             self.all_param_names += [p + "_2" for p in self.param_names]
 
@@ -73,6 +76,15 @@ class LyaModel:
             return -np.inf
 
         y_model_f_tot = np.interp(measured_wavelength, y_model_w_Arr_1, y_model_f_Arr_1)
+
+        if self.gaussian_component:
+            gauss_comp = gaussian(
+                measured_wavelength,
+                p['GaussianCenter'],
+                p['GaussianFWHM'],
+                p['GaussianAmplitude']
+            )
+            y_model_f_tot += gauss_comp
         
         if self.is_two_comp:
             grid_2 = self._get_grid(self.model_type_2, self.mode_2)
@@ -130,6 +142,16 @@ class LyaModel:
             'w_IGM_1': w_IGM_rest_Arr_1, 'T_IGM_1': T_IGM_Arr_1, 'info_1': info_1,
             'resample_tot': resample_1.copy()
         }
+
+        if self.gaussian_component:
+            gauss_comp = gaussian(
+                w_Arr,
+                p['GaussianCenter'],
+                p['GaussianFWHM'],
+                p['GaussianAmplitude']
+            )
+            models_dict['gaussian'] = gauss_comp
+            models_dict['resample_tot'] += gauss_comp
 
         if self.is_two_comp:
             grid_2 = self._get_grid(self.model_type_2, self.mode_2)

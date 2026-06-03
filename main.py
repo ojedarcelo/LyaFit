@@ -66,6 +66,29 @@ if is_two_comp:
         'Flux_2': 'F_t_2', 'LogEW_2': 'Log_EW_t_2', 'IntrinsicW_2': 'W_t_2', 'TP_2': 'T_p_2'
     })
 
+# --- Detect Gaussian Component Mode ---
+is_gaussian = ConfigFile.get('GaussianComponent', False)
+
+if is_gaussian:
+    gauss_keys = [
+        'GaussianCenterBounds', 'GaussianFWHMBounds', 'GaussianAmplitudeBounds',
+        'FixedParameters_Gaussian'
+    ]
+    missing_gauss = [k for k in gauss_keys if k not in ConfigFile]
+    if missing_gauss:
+        print(f"Error: GaussianComponent is True but missing keys: {missing_gauss}")
+        sys.exit(1)
+
+    ll_dict.update({
+        'GaussianCenter': 'G_center',
+        'GaussianFWHM': 'G_FWHM',
+        'GaussianAmplitude': 'G_Amp'
+    })
+
+if is_gaussian and is_two_comp:
+    print("Error: GaussianComponent and two-component mode cannot be used simultaneously.")
+    sys.exit(1)
+
 line_df = pd.read_csv(ConfigFile['File'])
 line_df.columns = line_df.columns.str.strip()
 
@@ -86,6 +109,13 @@ for param in ConfigFile['FixedParameters']:
         print(param, ' is fixed to ', ConfigFile['FixedParameters'][param]['value'])
     else:
         free_parameters.append(param)
+
+if is_gaussian:
+    for param in ConfigFile['FixedParameters_Gaussian']:
+        if ConfigFile['FixedParameters_Gaussian'][param]['fixed']:
+            print(param, ' is fixed to ', ConfigFile['FixedParameters_Gaussian'][param]['value'])
+        else:
+            free_parameters.append(param)
 
 if is_two_comp:
     for param in ConfigFile['FixedParameters_2']:
@@ -149,6 +179,8 @@ if __name__ == '__main__':
         print('\n' + 50 * '=')
         if is_two_comp:
             print(f'*** FITTING GEOMETRY: {current_geometry} + {current_geometry_2} ***')
+        elif is_gaussian:
+            print(f'*** FITTING GEOMETRY: {current_geometry} + Gaussian ***')
         else:
             print(f'*** FITTING GEOMETRY: {current_geometry} ***')
         print(50 * '=' + '\n')
@@ -159,6 +191,8 @@ if __name__ == '__main__':
         if is_two_comp:
             run_config['Geometry_2'] = current_geometry_2
             run_output_folder = os.path.join(str(run_config['OutputFolder']), f"{current_geometry}_{current_geometry_2}")
+        elif is_gaussian:
+            run_output_folder = os.path.join(str(run_config['OutputFolder']), f"{current_geometry}_Gaussian")
         else:
             run_output_folder = os.path.join(str(run_config['OutputFolder']), current_geometry)
             
@@ -189,7 +223,8 @@ if __name__ == '__main__':
             pix_t=PIX_t,
             is_two_comp=is_two_comp,
             geometry_2=current_geometry_2,
-            mode_2=run_config.get('Mode_2')
+            mode_2=run_config.get('Mode_2'),
+            gaussian_component=is_gaussian
         )
 
         sampler = mcmc.fit_zelda_mcmc(
@@ -239,7 +274,8 @@ if __name__ == '__main__':
             ll_dict=run_ll_dict,
             flux_units=run_config['FluxUnits'],
             ConfigFile=run_config,
-            is_two_comp=is_two_comp
+            is_two_comp=is_two_comp,
+            gaussian_component=is_gaussian
         )
 
         plotter.plot_convergence()
@@ -291,7 +327,7 @@ if __name__ == '__main__':
             print("ERROR: All samples contained NaNs/Infs.")
             continue 
 
-        # Plot Component 1
+        # Plot Component 1 (includes Gaussian parameters when active)
         plotter.plot_covariance(samples)
         
         # Plot Component 2 if active
@@ -315,6 +351,8 @@ if __name__ == '__main__':
         theta_aux = samples[np.argmax(lnprob2)]
         
         all_params_keys = list(run_config['FixedParameters'].keys())
+        if is_gaussian:
+            all_params_keys += list(run_config['FixedParameters_Gaussian'].keys())
         if is_two_comp:
             all_params_keys += list(run_config['FixedParameters_2'].keys())
 
@@ -368,7 +406,8 @@ if __name__ == '__main__':
         csv_handler.save_fitted_spectrum_to_csv(
             w_arr=measured_wavelength,
             models_dict=models_dict,
-            is_two_comp=is_two_comp
+            is_two_comp=is_two_comp,
+            is_gaussian=is_gaussian
         )
 
         print('*** Saving last 1000 iterations... ***')

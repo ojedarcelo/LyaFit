@@ -21,7 +21,8 @@ cc = sns.color_palette()
 class Plotter:
 
     def __init__(
-            self, chain, lnprob, output_folder, free_parameters, ll_dict, flux_units, ConfigFile, is_two_comp=False
+            self, chain, lnprob, output_folder, free_parameters, ll_dict,
+            flux_units, ConfigFile, is_two_comp=False, gaussian_component=False
     ):
         self.chain = chain
         self.lnprob = lnprob
@@ -31,6 +32,7 @@ class Plotter:
         self.flux_units = flux_units
         self.ConfigFile = ConfigFile
         self.is_two_comp = is_two_comp
+        self.gaussian_component = gaussian_component
 
         self.LYA_WAVELENGTH = 1215.67  # Lyman-alpha wavelength in Angstroms
 
@@ -174,6 +176,15 @@ class Plotter:
                     label=f'Component 2: {geom2}', drawstyle='steps-mid', alpha=0.6)
             ax.plot(measured_wavelength, models_dict['resample_tot'], c='g',
                     label='Full Model', drawstyle='steps-mid', linewidth=2)
+        elif self.gaussian_component:
+            geom1 = self.ConfigFile.get('Geometry', 'Thin_Shell_Cont')
+
+            ax.plot(measured_wavelength, models_dict['resample_1'], c='r',
+                    label=f'Shell: {geom1}', drawstyle='steps-mid', alpha=0.6)
+            ax.plot(measured_wavelength, models_dict['gaussian'], c='purple',
+                    label='Gaussian', drawstyle='steps-mid', alpha=0.6, ls='--')
+            ax.plot(measured_wavelength, models_dict['resample_tot'], c='g',
+                    label='Full Model (Shell + Gaussian)', drawstyle='steps-mid', linewidth=2)
         else:
             ax.plot(measured_wavelength, models_dict['resample_tot'], c='g',
                     label='MCMC Model', drawstyle='steps-mid')
@@ -202,6 +213,11 @@ class Plotter:
             is_z_fixed_2 = self.ConfigFile.get('FixedParameters_2', {}).get('Redshift_2', {}).get('fixed', False)
             z_label_2 = f'Sys Lya 2 z={round(z_t_2, 3)}' if is_z_fixed_2 else f'Best Fit Lya 2 z={round(z_t_2, 3)}'
             ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_2), color='magenta', ls='--', label=z_label_2)
+
+        if self.gaussian_component:
+            g_center = full_theta['GaussianCenter']
+            ax.axvline(g_center, color='purple', ls=':', alpha=0.7,
+                       label=f'Gaussian center={round(g_center, 2)} Å')
 
         ax.tick_params(axis='both', which='major', labelsize=12)
         secax.tick_params(axis='x', which='major', labelsize=12)
@@ -249,6 +265,19 @@ class Plotter:
                     label='IGM 1, T_p = {:.3f}'.format(full_theta['TP']))
             ax.plot(measured_wavelength, models_dict['T_IGM_2'], c='brown',
                     label='IGM 2, T_p = {:.3f}'.format(full_theta['TP_2']))
+        elif self.gaussian_component:
+            geom1 = self.ConfigFile.get('Geometry', 'Thin_Shell_Cont')
+            resample_norm = np.amax(models_dict['resample_tot'])
+
+            ax.plot(measured_wavelength, models_dict['resample_1'] / resample_norm, c='r',
+                    label=f'Shell: {geom1}', drawstyle='steps-mid', alpha=0.6)
+            ax.plot(measured_wavelength, models_dict['gaussian'] / resample_norm, c='purple',
+                    label='Gaussian', drawstyle='steps-mid', alpha=0.6, ls='--')
+            ax.plot(measured_wavelength, models_dict['resample_tot'] / resample_norm, c='g',
+                    label='Full Model (Shell + Gaussian)', drawstyle='steps-mid', linewidth=2)
+
+            ax.plot(measured_wavelength, models_dict['T_IGM_1'], c='brown',
+                    label='IGM Transmission, T_p = {:.3f}'.format(full_theta['TP']))
         else:
             ax.plot(measured_wavelength, models_dict['resample_tot'] * 1. / np.amax(models_dict['resample_tot']),
                     c='g', label='MCMC Model', drawstyle='steps-mid')
@@ -280,6 +309,11 @@ class Plotter:
             z_label_2 = f'Sys Lya 2 z={round(z_t_2, 3)}' if is_z_fixed_2 else f'Best Fit Lya 2 z={round(z_t_2, 3)}'
             ax.axvline(self.LYA_WAVELENGTH * (1 + z_t_2), color='magenta', ls='--', label=z_label_2)
 
+        if self.gaussian_component:
+            g_center = full_theta['GaussianCenter']
+            ax.axvline(g_center, color='purple', ls=':', alpha=0.7,
+                       label=f'Gaussian center={round(g_center, 2)} Å')
+
         ax.tick_params(axis='both', which='major', labelsize=12)
         secax.tick_params(axis='x', which='major', labelsize=12)
 
@@ -289,3 +323,4 @@ class Plotter:
         fig.savefig(os.path.join(self.results_folder_path, best_fit_path), dpi=450, bbox_inches='tight')
         plt.close()
         return
+

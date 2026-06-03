@@ -2,8 +2,8 @@
 # =====================================
 
 # Input files
-File: "/path/to/input/file.csv" # prioritize full path if not in working directory
-OutputFolder: "/path/to/output/folder"
+File: "Slit_1_Ap_6_all_arms.csv" # prioritize full path if not in working directory
+OutputFolder: "sunburst_gaussian_fit_2"
 GridsFolder: "Grids" # MUST be in working directory
 
 
@@ -16,13 +16,13 @@ GridsFolder: "Grids" # MUST be in working directory
 # - init_high: upper bound for initial walker positions  
 # - max: absolute maximum allowed value
 
-RedshiftBounds: [2, 2.1, 2.2, 3]
-ExpVBounds: [0, 100, 700, 1000]            # km s**
-LogNBounds: [17.1, 18, 20, 22]             # cm**-2, Upper bound can be increased to 22 for geometries other than Thin_Shell
-TauBounds: [0.0001, 0.1, 0.9, 1]
-FluxBounds: [0, 0.5, 1.5, 10]
-LogEWBounds: [0.0, 0.01, 2.8, 2.9]         # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
-IntrinsicWBounds: [0.01, 0.05, 5.5, 5.9]   # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
+RedshiftBounds: [2.369, 2.370, 2.371, 2.372]
+ExpVBounds: [0, 2, 50, 1000]            # km s**
+LogNBounds: [17.1, 17.65, 17.67, 22]             # cm**-2, Upper bound can be increased to 22 for geometries other than Thin_Shell
+TauBounds: [0.0001, 0.33, 0.35, 1]
+FluxBounds: [0, 1135, 1137, 50000]
+LogEWBounds: [0.0, 1.307, 1.312, 2.9]         # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
+IntrinsicWBounds: [0.01, 0.99, 1.1, 5.9]   # Angstrom, Upper bound can be infinity for geometries other than Thin_Shell
 TPBounds: [0.0001, 0.002, 0.8, 1.0]
 
 CalculateEscapeFraction: False # Set to True to calculate escape fraction
@@ -101,8 +101,36 @@ FixedParameters:
     fixed: False
     value: 2.0
   TP:
-    fixed: False
+    fixed: True
     value: 1
+
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++ FOR FITTING WITH A GAUSSIAN COMPONENT, UNCOMMENT THIS BLOCK +++
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Adds a Gaussian to the shell model: Total = Shell + Gaussian
+# The fitted Gaussian parameters are its center (Angstrom),
+# FWHM (Angstrom), and amplitude (flux units).
+# NOTE: Cannot be used simultaneously with two-component mode.
+
+GaussianComponent: True
+
+GaussianCenterBounds: [4096.5, 4097.05, 4097.07, 4097.5]     # Angstrom (observed frame)
+GaussianFWHMBounds: [0.8, 1.005, 1.012, 1.1]                  # Angstrom
+GaussianAmplitudeBounds: [120, 166, 167, 250]            # Flux units
+
+FixedParameters_Gaussian:
+  GaussianCenter:
+    fixed: False
+    value: 4097.1
+  GaussianFWHM:
+    fixed: False
+    value: 10
+  GaussianAmplitude:
+    fixed: False
+    value: 1.0
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -171,17 +199,17 @@ FixedParameters:
 Instrument: "MUSE"
 
 # If Instrument is set to "None", custom settings must be provided:
-LSF_FWHM: 2.2 # @ Peak wavelength of Lyα line
-PixelScale: 1.0 # Wavelength spacing per pixel
+LSF_FWHM: 0.136 # @ Peak wavelength of Lyα line
+PixelScale: 0.04 # Wavelength spacing per pixel
 
-SNR: 1000.  # Signal-to-noise ratio for model spectrum (preferably do not change)
+SNR: 10000.  # Signal-to-noise ratio for model spectrum (preferably do not change)
 
 # =====================================================
 # Units Settings
 # =====================================================
 
 WavelengthUnits: "Angstrom"   # Options: "Angstrom" (DO NOT CHANGE and make sure your data is in Angstroms)
-FluxUnits: "a.u." # "1e-20 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}" for MUSE data
+FluxUnits: "1e-18 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}$" # "1e-20 erg s$^{-1}$ cm$^{-2}$ Angstrom$^{-1}$" for MUSE data
 
 
 # =====================================================
@@ -192,6 +220,7 @@ MCMCA: 1.5            # Stretch move parameter (adjust if acceptance fraction (a
                       # If af > 0.5 increase the a parameter
 
 Nthreads: 8           # Number of parallel threads
-nwalkers: 20          # Number of walkers (should be >= 2 * number of free parameters)
-nsteps: 20            # Number of steps per walker
+nwalkers: 100          # Number of walkers (should be >= 2 * number of free parameters)
+nsteps: 1000            # Number of steps per walker
 MOVES: Stretch        # Move strategy: 'Stretch' or 'KDE'
+

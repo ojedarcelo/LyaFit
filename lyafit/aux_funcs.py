@@ -2,6 +2,11 @@ import numpy as np
 import Lya_zelda_II as Lya
 
 
+def gaussian(w, center, fwhm, amplitude):
+    sigma = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    return amplitude * np.exp(-0.5 * ((w - center) / sigma) ** 2)
+
+
 def generate_igm_transmission(w_Arr, T_p, z):
     w_Lya = 1215.67  # Lyman-alpha wavelength in Angstroms
     w_IGM_rest_Arr = w_Arr / (1 + z)
@@ -50,7 +55,9 @@ def build_full_theta(param_names, ConfigFile, theta_free):
     full_theta = {}
     free_idx = 0
     for name in param_names:
-        if name.endswith('_2'):
+        if name.startswith('Gaussian'):
+            fp = ConfigFile["FixedParameters_Gaussian"][name]
+        elif name.endswith('_2'):
             fp = ConfigFile["FixedParameters_2"][name]
         else:
             fp = ConfigFile["FixedParameters"][name]
@@ -69,7 +76,12 @@ def append_escape_fraction(chain, free_parameters, ConfigFile, ll_dict, is_two_c
     nsteps = chain.shape[1]
 
     def get_param_array(p_name):
-        fixed_dict = ConfigFile['FixedParameters_2'] if p_name.endswith('_2') else ConfigFile['FixedParameters']
+        if p_name.startswith('Gaussian'):
+            fixed_dict = ConfigFile['FixedParameters_Gaussian']
+        elif p_name.endswith('_2'):
+            fixed_dict = ConfigFile['FixedParameters_2']
+        else:
+            fixed_dict = ConfigFile['FixedParameters']
         if fixed_dict[p_name]['fixed']:
             return np.full(flat_chain.shape[0], float(fixed_dict[p_name]['value']))
         else:

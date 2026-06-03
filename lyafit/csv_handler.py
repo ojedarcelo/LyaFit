@@ -50,7 +50,9 @@ class CSVHandler:
 
         for param in self.all_params:
             if param not in self.fitted_params:
-                if param.endswith('_2'):
+                if param.startswith('Gaussian'):
+                    fp = self.ConfigFile["FixedParameters_Gaussian"][param]
+                elif param.endswith('_2'):
                     fp = self.ConfigFile["FixedParameters_2"][param]
                 else:
                     fp = self.ConfigFile["FixedParameters"][param]
@@ -62,7 +64,7 @@ class CSVHandler:
         df.to_csv(csv_path, index=False)
         return
 
-    def save_fitted_spectrum_to_csv(self, w_arr, models_dict, is_two_comp):
+    def save_fitted_spectrum_to_csv(self, w_arr, models_dict, is_two_comp, is_gaussian=False):
         """
         Saves the best-fit model arrays alongside the wavelength array to a CSV file.
         """
@@ -71,6 +73,10 @@ class CSVHandler:
         if is_two_comp:
             data['fitted_flux'] = models_dict['resample_1']
             data['fitted_flux_2'] = models_dict['resample_2']
+            data['total_flux'] = models_dict['resample_tot']
+        elif is_gaussian:
+            data['fitted_flux_shell'] = models_dict['resample_1']
+            data['fitted_flux_gaussian'] = models_dict['gaussian']
             data['total_flux'] = models_dict['resample_tot']
         else:
             data['fitted_flux'] = models_dict['resample_tot']
