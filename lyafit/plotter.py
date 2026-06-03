@@ -73,8 +73,15 @@ class Plotter:
                 x = np.append(x, range(len(i.T[ID])))
                 y = np.append(y, i.T[ID])
 
+            # --- NEW CODE: Safely ignore NaNs ---
+            y_min = np.nanmin(y)
+            y_max = np.nanmax(y)
+            x_min = np.nanmin(x)
+            x_max = np.nanmax(x)
+            # ------------------------------------
+
             plt.figure()
-            if min(y) > 0 and (max(y) / min(y)) > 50:
+            if y_min > 0 and (y_max / y_min) > 50:
                 plt.hexbin(
                     x, y, gridsize=[70, 30], cmap='inferno',
                     bins='log', mincnt=1, yscale='log', linewidths=0
@@ -86,8 +93,11 @@ class Plotter:
                 )
             plt.ylabel(self.ll_dict[self.free_parameters[ID]])
             plt.xlabel('iteration')
-            plt.xlim(min(x), max(x))
-            plt.ylim(min(y), max(y))
+            
+            # --- Apply safe limits ---
+            plt.xlim(x_min, x_max)
+            plt.ylim(y_min, y_max)
+            # -------------------------
 
             trace_path = self.ll_dict[self.free_parameters[ID]] + '_trace.png'
             plt.savefig(os.path.join(self.results_folder_path, trace_path), dpi=300)
